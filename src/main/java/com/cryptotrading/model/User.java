@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String fullName;
@@ -23,7 +23,7 @@ public class User {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
-    private long mobileNumber;
+    private Long mobileNumber;
 
     @Embedded
     private TwoFactorAuth twoFactorAuth = new TwoFactorAuth();
