@@ -8,7 +8,9 @@ import com.cryptotrading.model.TwoFactorOTP;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.UserRepository;
 import com.cryptotrading.service.CustomUserDetailsService;
+import com.cryptotrading.service.EmailService;
 import com.cryptotrading.service.TwoFactorOtpService;
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,10 +20,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -32,6 +31,7 @@ public class AuthController {
     private final CustomUserDetailsService customUserDetailsService;
     private final PasswordEncoder passwordEncoder;
     private final TwoFactorOtpService twoFactorOtpService;
+    private final EmailService emailService;
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> register(@RequestBody User user) throws Exception {
@@ -68,7 +68,7 @@ public class AuthController {
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request, User user)  {
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request, User user) throws MessagingException {
 
 
         Authentication auth = authenticate(
@@ -98,6 +98,8 @@ public class AuthController {
                     otp,
                     jwt
             );
+
+           emailService.sendVerificationOtpEmail(request.getEmail(), otp );
 
             response.setSession(newTwoFactorOTP.getId());
             return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
@@ -140,5 +142,20 @@ public class AuthController {
         response.setMessage(message);
 
         return response;
+    }
+
+    public ResponseEntity<AuthResponse> verifySigninOtp(
+            @PathVariable String otp,
+            @RequestParam String id) throws Exception {
+        TwoFactorOTP twoFactorOTP = twoFactorOtpService.findById(id);
+
+        if(twoFactorOtpService.verifyTwoFactorOtp(twoFactorOTP, otp)) {
+            AuthResponse response = new AuthResponse();
+            response.setMessage("Two factor authentication verified");
+            response.setTwoFactorAuthEnabled(true);
+            response.setJwt(twoFactorOTP.getJwt());
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }
+        throw new Exception("Invalid OTP");
     }
 }
