@@ -1,11 +1,14 @@
 package com.cryptotrading.controller;
 
+import com.cryptotrading.Utils.OtpUtils;
 import com.cryptotrading.config.JwtProvider;
 import com.cryptotrading.dto.AuthRequest;
 import com.cryptotrading.dto.AuthResponse;
+import com.cryptotrading.model.TwoFactorOTP;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.UserRepository;
 import com.cryptotrading.service.CustomUserDetailsService;
+import com.cryptotrading.service.TwoFactorOtpService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +17,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,25 +30,27 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final CustomUserDetailsService customUserDetailsService;
+    private final PasswordEncoder passwordEncoder;
+    private final TwoFactorOtpService twoFactorOtpService;
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> register(@RequestBody User user) throws Exception {
 
       User isEmailExist = userRepository.findByEmail(user.getEmail());
       if(isEmailExist != null) {
-          throw new Exception("Email is already used with another account");
+          throw new IllegalArgumentException("Email already exists");
       }
 
         User newUser = new User();
         newUser.setFullName(user.getFullName());
         newUser.setEmail(user.getEmail());
-        newUser.setPassword(user.getPassword());
+        newUser.setPassword(passwordEncoder.encode(user.getPassword()));
         newUser.setMobileNumber(user.getMobileNumber());
 
         User savedUser = userRepository.save(newUser);
 
-        Authentication auth = new UsernamePasswordAuthenticationToken(
-                user.getEmail(),
+        Authentication auth = authenticate(
+                savedUser.getEmail(),
                user.getPassword()
         );
 
@@ -52,46 +58,87 @@ public class AuthController {
 
         String jwt = JwtProvider.generateToken(auth);
 
-        AuthResponse response = new AuthResponse();
-        response.setJwt(jwt);
-        response.setStatus(true);
-        response.setMessage("User registered successfully");
+        AuthResponse response = buildAuthResponse(
+                savedUser,
+                jwt,
+                "User registered successfully"
+        );
 
-       return new ResponseEntity<>(response, HttpStatus.CREATED);
+       return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) throws Exception {
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request, User user)  {
 
-        String userName = request.getEmail();
-        String password = request.getPassword();
 
         Authentication auth = authenticate(
-                userName, password
+                request.getEmail(),
+                request.getPassword()
         );
 
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         String jwt = JwtProvider.generateToken(auth);
 
-        AuthResponse response = new AuthResponse();
-        response.setJwt(jwt);
-        response.setStatus(true);
-        response.setMessage("User logged in successfully");
+        User loggedInUser  = userRepository.findByEmail(request.getEmail());
 
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        if(user.getTwoFactorAuth().isEnabled()) {
+            AuthResponse response = new AuthResponse();
+            response.setMessage("Two Factor auth is enabled");
+            response.setTwoFactorAuthEnabled(true);
+            String otp = OtpUtils.generateOTP();
+
+            TwoFactorOTP oldTwoFactorOTP = twoFactorOtpService.findByUser(loggedInUser.getId());
+            if(oldTwoFactorOTP != null) {
+                twoFactorOtpService.deleteTwoFactorOtp(oldTwoFactorOTP);
+            }
+
+            TwoFactorOTP newTwoFactorOTP =  twoFactorOtpService.createTwoFactorOtp(
+                    loggedInUser,
+                    otp,
+                    jwt
+            );
+
+            response.setSession(newTwoFactorOTP.getId());
+            return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+        }
+
+        AuthResponse response = buildAuthResponse(
+                loggedInUser ,
+                jwt,
+                "User logged in successfully"
+        );
+
+        return ResponseEntity.ok(response);
     }
 
     private Authentication authenticate(String userName, String password) {
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(userName);
 
         if (userDetails == null) {
-            throw new BadCredentialsException("Invalid Username");
+            throw new BadCredentialsException("Invalid Credentials");
         }
 
-        if (!password.equals(userDetails.getPassword())) {
-            throw new BadCredentialsException("Invalid password");
+        if (!passwordEncoder.matches(password, userDetails.getPassword())) {
+            throw new BadCredentialsException("Invalid Credentials");
         }
-        return new UsernamePasswordAuthenticationToken(userDetails, password, userDetails.getAuthorities());
+        return new UsernamePasswordAuthenticationToken(
+                userDetails,
+                null,
+                userDetails.getAuthorities());
+    }
+
+    private AuthResponse buildAuthResponse(User user, String jwt, String message) {
+        AuthResponse response = new AuthResponse();
+        response.setId(user.getId());
+        response.setFullName(user.getFullName());
+        response.setEmail(user.getEmail());
+        response.setMobileNumber(user.getMobileNumber());
+
+        response.setJwt(jwt);
+        response.setStatus(true);
+        response.setMessage(message);
+
+        return response;
     }
 }
