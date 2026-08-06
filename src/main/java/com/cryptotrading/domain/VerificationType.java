@@ -1,6 +1,6 @@
 package com.cryptotrading.domain;
 
-public enum verificationType {
+public enum VerificationType {
     MOBILE,
     EMAIL
 }
