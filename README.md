@@ -1,13 +1,13 @@
-###  **TradeForge**
+###  ** 🚀 TradeForge**
 
    **TradeForge** — A full-stack crypto trading platform built with Java, spring boot and react, 
        enabling users to buy, sell, and track cryptocurrencies in real times.
 
 #### Database Design & Tables
 
-#### **Tables and Relationships**
+#### **📋Tables and Relationships**
 
-1. **Users Table**
+1. **👤 Users Table**
     - `id` (Primary Key)
     - `fullName`
     - `email`
@@ -19,7 +19,8 @@
     - `twoFactorAuth_sendTo`
     - `picture`
     - `role`
-2. **Coins Table**
+
+2. **🪙 Coins Table**
     - `id` (Primary Key)
     - `symbol`
     - `name`
@@ -46,232 +47,288 @@
     - `atl_date`
     - `roi`
     - `last_updated`
-3. **Assets Table**
+
+3. **📦 Assets Table**
     - `id` (Primary Key)
     - `quantity`
     - `buy_price`
-    - `coin_id` (Foreign Key referencing Coins)
-    - `user_id` (Foreign Key referencing Users)
-4. **Withdrawals Table**
+    - `coin_id` (Foreign Key → Coins)
+    - `user_id` (Foreign Key → Users)
+
+4. **💸 Withdrawals Table**
     - `id` (Primary Key)
     - `status`
     - `amount`
-    - `user_id` (Foreign Key referencing Users)
+    - `user_id` (Foreign Key → Users)
     - `date`
-5. **Watchlists Table**
+
+5. **⭐ Watchlist Table**
     - `id` (Primary Key)
-    - `user_id` (Foreign Key referencing Users)
-6. **Watchlist_Coins Table** (Join Table for many-to-many relationship)
-    - `watchlist_id` (Foreign Key referencing Watchlists)
-    - `coin_id` (Foreign Key referencing Coins)
-7. **WalletTransactions Table**
+    - `user_id` (Foreign Key → Users)
+
+6. **🔗 Watchlist_Coins Table**
+    - `watchlist_id` (Foreign Key → Watchlists)
+    - `coin_id` (Foreign Key → Coins)
+
+7. **💳 WalletTransactions Table**
     - `id` (Primary Key)
-    - `wallet_id` (Foreign Key referencing Wallets)
+    - `wallet_id` (Foreign Key → Wallets)
     - `type`
     - `date`
     - `transfer_id`
     - `purpose`
     - `amount`
-8. **Wallets Table**
+
+8. **👛 Wallets Table**
     - `id` (Primary Key)
-    - `user_id` (Foreign Key referencing Users)
+    - `user_id` (Foreign Key → Users)
     - `balance`
-9. **VerificationCodes Table**
+
+9. **🔐 VerificationCodes Table**
     - `id` (Primary Key)
     - `otp`
-    - `user_id` (Foreign Key referencing Users)
+    - `user_id` (Foreign Key → Users)
     - `email`
     - `mobile`
     - `verification_type`
-10. **TradingHistories Table**
+
+10. **📈 TradingHistories Table**
     - `id` (Primary Key)
     - `selling_price`
     - `buying_price`
-    - `coin_id` (Foreign Key referencing Coins)
-    - `user_id` (Foreign Key referencing Users)
-11. **PaymentOrders Table**
+    - `coin_id` (Foreign Key → Coins)
+    - `user_id` (Foreign Key → Users)
+
+11. **💰 PaymentOrders Table**
     - `id` (Primary Key)
     - `amount`
     - `status`
     - `payment_method`
-    - `user_id` (Foreign Key referencing Users)
-12. **PaymentDetails Table**
+    - `user_id` (Foreign Key → Users)
+
+12. **🏦 PaymentDetails Table**
     - `id` (Primary Key)
     - `account_number`
     - `account_holder_name`
     - `ifsc`
     - `bank_name`
-    - `user_id` (Foreign Key referencing Users)
-13. **Orders Table**
+    - `user_id` (Foreign Key → Users)
+
+13. **🛒 Orders Table**
     - `id` (Primary Key)
-    - `user_id` (Foreign Key referencing Users)
+    - `user_id` (Foreign Key → Users)
     - `order_type`
     - `price`
     - `timestamp`
     - `status`
-    - `order_item_id` (Foreign Key referencing OrderItems)
-14. **OrderItems Table**
+    - `order_item_id` (Foreign Key → OrderItems)
+
+14. **📦 OrderItems Table**
     - `id` (Primary Key)
     - `quantity`
-    - `coin_id` (Foreign Key referencing Coins)
+    - `coin_id` (Foreign Key → Coins)
     - `buy_price`
     - `sell_price`
-    - `order_id` (Foreign Key referencing Orders)
-15. **Notifications Table**
+    - `order_id` (Foreign Key → Orders)
+
+15. **🔔 Notifications Table**
     - `id` (Primary Key)
-    - `from_user_id` (Foreign Key referencing Users)
-    - `to_user_id` (Foreign Key referencing Users)
+    - `from_user_id` (Foreign Key → Users)
+    - `to_user_id` (Foreign Key → Users)
     - `amount`
     - `message`
-16. **MarketChartData Table**
+
+16. **📊 MarketChartData Table**
     - `id` (Primary Key)
     - `timestamp`
     - `price`
-17. **ForgotPasswordTokens Table**
+
+17. **🔑 ForgotPasswordTokens Table**
     - `id` (Primary Key)
-    - `user_id` (Foreign Key referencing Users)
+    - `user_id` (Foreign Key → Users)
     - `otp`
     - `verification_type`
     - `send_to`
-  
-#####   **ER-Diagram**
 
-+---------------------+           +-----------------+
-|       Users         |<--------->|    Wallets      |
-|---------------------|           +-----------------+
-| id                  |               ^            
-| fullName            |               |
-| email               |               |         
-| ...                 |               |
-+---------------------+               |
-|
-+--------------------+            +--------------------+
-|      Assets        |<---------->| WalletTransactions |
-|--------------------|            +--------------------+
-| id                 |
-| quantity           |
-| buy_price          |<---------->+-----------------+
-| coin_id            |            |  Coins          |
-| user_id            |            +-----------------+
-+--------------------+            | id              |
-                                  | symbol          |
-+--------------------+            | ...             |
-| Withdrawals        |<---------->+-----------------+
-|--------------------|
-| id                 |
-| status             |
-| amount             |
-| user_id            |
-| date               |
-+--------------------+
+## 📊 ER Diagram
 
-+--------------------+
-| Watchlist         |
-|--------------------+
-| id                 |
-| user_id            |
-+--------------------+
-       |
-       |
-       v
-+--------------------+
-| Watchlist_Coins    |
-|--------------------+
-| watchlist_id       |
-| coin_id            |
-+--------------------+
+```mermaid
+erDiagram
 
-+---------------------+           +---------------------+
-|   VerificationCodes |<--------->|        Users        |
-|---------------------|           +---------------------+
-| id                  |
-| otp                 |
-| user_id             |
-| email               |
-| mobile              |
-| verification_type   |
-+---------------------+
+    USERS {
+        bigint id PK
+        string fullName
+        string email
+        string mobile
+        string password
+        string status
+        boolean isVerified
+        boolean twoFactorAuth_enabled
+        string twoFactorAuth_sendTo
+        string picture
+        string role
+    }
 
-+---------------------+           +---------------------+
-|  TradingHistories   |<--------->|        Users        |
-|---------------------|           +---------------------+
-| id                  |
-| selling_price       |
-| buying_price        |
-| coin_id             |
-| user_id             |
-+---------------------+
+    COINS {
+        bigint id PK
+        string symbol
+        string name
+        string image
+        decimal current_price
+        decimal market_cap
+        int market_cap_rank
+        decimal total_volume
+        decimal high_24h
+        decimal low_24h
+        decimal price_change_24h
+        decimal circulating_supply
+        decimal total_supply
+        decimal max_supply
+        datetime last_updated
+    }
 
-+---------------------+           +---------------------+
-|    PaymentOrders    |<--------->|        Users        |
-|---------------------|           +---------------------+
-| id                  |
-| amount              |
-| status              |
-| payment_method      |
-| user_id             |
-+---------------------+
+    ASSETS {
+        bigint id PK
+        decimal quantity
+        decimal buy_price
+        bigint user_id FK
+        bigint coin_id FK
+    }
 
-+---------------------+           +---------------------+
-|   PaymentDetails    |<--------->|        Users        |
-|---------------------|           +---------------------+
-| id                  |
-| account_number      |
-| account_holder_name |
-| ifsc                |
-| bank_name           |
-| user_id             |
-+---------------------+
+    WALLETS {
+        bigint id PK
+        decimal balance
+        bigint user_id FK
+    }
 
-+---------------------+           +---------------------+
-|        Orders       |<--------->|        Users        |
-|---------------------|           +---------------------+
-| id                  |
-| user_id             |
-| order_type          |
-| price               |
-| timestamp           |
-| status              |
-| order_item_id       |
-+---------------------+
-        |
-        |
-        v
-+---------------------+           +---------------------+
-|      OrderItems     |<--------->|        Coins        |
-|---------------------|           +---------------------+
-| id                  |
-| quantity            |
-| coin_id             |
-| buy_price           |
-| sell_price          |
-| order_id            |
-+---------------------+
+    WALLET_TRANSACTIONS {
+        bigint id PK
+        string type
+        decimal amount
+        string purpose
+        datetime date
+        string transfer_id
+        bigint wallet_id FK
+    }
 
-+---------------------+             +---------------------+
-|    Notifications    | <---------> |        Users        |
-|---------------------|             +---------------------+
-| id                  |
-| from_user_id        |
-| to_user_id          |
-| amount              |
-| message             |
-+---------------------+
+    WITHDRAWALS {
+        bigint id PK
+        decimal amount
+        string status
+        datetime date
+        bigint user_id FK
+    }
 
-+---------------------+           
-|   MarketChartData   |
-|---------------------|
-| id                  |
-| timestamp           |
-| price               |
-+---------------------+
+    WATCHLISTS {
+        bigint id PK
+        bigint user_id FK
+    }
 
-+---------------------+             +---------------------+
-| ForgotPasswordTokens| <---------> |        Users        |
-|---------------------|             +---------------------+
-| id                  |
-| user_id             |
-| otp                 |
-| verification_type   |
-| send_to             |
-+---------------------+
+    WATCHLIST_COINS {
+        bigint watchlist_id FK
+        bigint coin_id FK
+    }
+
+    VERIFICATION_CODES {
+        bigint id PK
+        string otp
+        string email
+        string mobile
+        string verification_type
+        bigint user_id FK
+    }
+
+    TRADING_HISTORIES {
+        bigint id PK
+        decimal buying_price
+        decimal selling_price
+        bigint coin_id FK
+        bigint user_id FK
+    }
+
+    PAYMENT_ORDERS {
+        bigint id PK
+        decimal amount
+        string status
+        string payment_method
+        bigint user_id FK
+    }
+
+    PAYMENT_DETAILS {
+        bigint id PK
+        string account_number
+        string account_holder_name
+        string ifsc
+        string bank_name
+        bigint user_id FK
+    }
+
+    ORDERS {
+        bigint id PK
+        string order_type
+        decimal price
+        string status
+        datetime timestamp
+        bigint user_id FK
+    }
+
+    ORDER_ITEMS {
+        bigint id PK
+        decimal quantity
+        decimal buy_price
+        decimal sell_price
+        bigint order_id FK
+        bigint coin_id FK
+    }
+
+    NOTIFICATIONS {
+        bigint id PK
+        decimal amount
+        string message
+        bigint from_user_id FK
+        bigint to_user_id FK
+    }
+
+    MARKET_CHART_DATA {
+        bigint id PK
+        datetime timestamp
+        decimal price
+    }
+
+    FORGOT_PASSWORD_TOKENS {
+        bigint id PK
+        string otp
+        string verification_type
+        string send_to
+        bigint user_id FK
+    }
+
+    USERS ||--|| WALLETS : owns
+    WALLETS ||--o{ WALLET_TRANSACTIONS : contains
+
+    USERS ||--o{ ASSETS : owns
+    COINS ||--o{ ASSETS : asset
+
+    USERS ||--o{ WITHDRAWALS : requests
+
+    USERS ||--|| WATCHLISTS : has
+    WATCHLISTS ||--o{ WATCHLIST_COINS : contains
+    COINS ||--o{ WATCHLIST_COINS : listed_in
+
+    USERS ||--o{ VERIFICATION_CODES : receives
+
+    USERS ||--o{ TRADING_HISTORIES : performs
+    COINS ||--o{ TRADING_HISTORIES : traded
+
+    USERS ||--o{ PAYMENT_ORDERS : creates
+    USERS ||--|| PAYMENT_DETAILS : owns
+
+    USERS ||--o{ ORDERS : places
+    ORDERS ||--|{ ORDER_ITEMS : contains
+    COINS ||--o{ ORDER_ITEMS : traded
+
+    USERS ||--o{ NOTIFICATIONS : sends
+    USERS ||--o{ NOTIFICATIONS : receives
+
+    USERS ||--o{ FORGOT_PASSWORD_TOKENS : receives
+```
