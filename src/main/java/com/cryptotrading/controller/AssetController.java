@@ -5,7 +5,6 @@ import com.cryptotrading.model.User;
 import com.cryptotrading.service.AssetService;
 import com.cryptotrading.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.apache.tomcat.util.http.parser.Authorization;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

@@ -2,24 +2,32 @@ package com.cryptotrading.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+
+import java.math.BigDecimal;
 
 @Data
 @RequiredArgsConstructor
+@NoArgsConstructor
 @Entity
 public class Asset {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private double quantity;
+    @Column(nullable = false, precision = 30, scale = 18)
+    private BigDecimal quantity;
 
-    private double buyPrice;
+    @Column(nullable = false, precision = 30, scale = 18)
+    private BigDecimal buyPrice;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "coin_id", nullable = false)
     private Coin coin;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 }

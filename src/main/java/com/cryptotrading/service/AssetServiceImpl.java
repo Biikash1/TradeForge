@@ -1,12 +1,15 @@
 package com.cryptotrading.service;
 
+import com.cryptotrading.exception.ResourceNotFoundException;
 import com.cryptotrading.model.Asset;
 import com.cryptotrading.model.Coin;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.AssetRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -16,24 +19,58 @@ public class AssetServiceImpl implements AssetService{
     private final AssetRepository assetRepository;
 
     @Override
-    public Asset createAsset(User user, Coin coin, double quantity) {
+    public Asset createAsset(User user,
+                             Coin coin,
+                             BigDecimal quantity) {
+
+        if (quantity == null ||
+                quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "Quantity must be greater than zero"
+            );
+        }
+
+        Asset existingAsset =
+                assetRepository.findByUserIdAndCoinId(
+                        user.getId(),
+                        coin.getId()
+                ).orElse(null);
+
+        if (existingAsset != null) {
+            existingAsset.setQuantity(
+                    existingAsset.getQuantity().add(quantity)
+            );
+
+            return assetRepository.save(existingAsset);
+        }
         Asset asset = new Asset();
         asset.setUser(user);
         asset.setCoin(coin);
         asset.setQuantity(quantity);
-        asset.setBuyPrice(coin.getCurrentPrice());
+        asset.setBuyPrice(BigDecimal.valueOf(coin.getCurrentPrice()));
         return assetRepository.save(asset);
     }
 
     @Override
     public Asset getAssetById(Long assetId) throws Exception {
         return assetRepository.findById(assetId)
-                .orElseThrow(() -> new Exception("Assets not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Asset not found with id: " + assetId
+                        )
+                );
+
     }
 
     @Override
-    public Asset getAssetByUserIdAndId(Long userid, Long assetId) throws Exception {
-        return null;
+    public Asset getAssetByUserIdAndId(Long userId, Long assetId) throws Exception {
+        return assetRepository
+                .findByIdAndUserId(assetId, userId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Asset not found with id: " + assetId
+                        )
+                );
     }
 
     @Override
@@ -41,20 +78,48 @@ public class AssetServiceImpl implements AssetService{
         return assetRepository.findByUserId(userId);
     }
 
+    @Transactional
     @Override
-    public Asset updateAsset(Long assetId, double quantity) throws Exception {
-        Asset oldAsset = getAssetById(assetId);
-        oldAsset.setQuantity(quantity + oldAsset.getQuantity() );
-        return assetRepository.save(oldAsset);
+    public Asset updateAsset(Long assetId,
+                             BigDecimal quantity) throws Exception {
+        if (quantity == null) {
+            throw new IllegalArgumentException(
+                    "Quantity cannot be null"
+            );
+        }
+
+        Asset asset = getAssetById(assetId);
+
+        BigDecimal updatedQuantity =
+                asset.getQuantity().add(quantity);
+
+        if (updatedQuantity.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(
+                    "Asset quantity cannot be negative"
+            );
+        }
+
+        asset.setQuantity(updatedQuantity);
+
+        return assetRepository.save(asset);
     }
 
     @Override
-    public Asset findAssetByUserIdAndCoinId(Long userId, String coinId) {
-        return assetRepository.findByUserIdAndCoinId(userId, coinId);
+    public Asset findAssetByUserIdAndCoinId(Long userId, Long coinId) {
+        return assetRepository
+                .findByUserIdAndCoinId(userId, coinId)
+                .orElse(null);
     }
 
     @Override
+    @Transactional
     public void deleteAsset(Long assetId) {
-      assetRepository.deleteById(assetId);
+        if (!assetRepository.existsById(assetId)) {
+            throw new ResourceNotFoundException(
+                    "Asset not found with id: " + assetId
+            );
+        }
+
+        assetRepository.deleteById(assetId);
     }
 }
