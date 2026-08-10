@@ -16,8 +16,9 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
 
     private final VerificationCodeRepository verificationCodeRepository;
 
+
     @Override
-    public VerificationCode sendVerificationCode(User user, VerificationType verificationType) {
+    public VerificationCode sendVerificationCodeByUser(User user, VerificationType verificationType) {
         VerificationCode verificationCode = new VerificationCode();
         verificationCode.setOtp(OtpUtils.generateOTP());
         verificationCode.setVerificationType(verificationType);
@@ -27,12 +28,9 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
 
     @Override
     public VerificationCode getVerificationCodeById(Long id) throws Exception {
-        Optional<VerificationCode> verificationCode =
-                verificationCodeRepository.findById(id);
-        if(verificationCode.isPresent()) {
-            return verificationCode.get();
-        }
-        throw new Exception("Verification code not found");
+                return  verificationCodeRepository.findById(id)
+                        .orElseThrow(() ->
+                                new Exception("Verification code not found"));
     }
 
     @Override

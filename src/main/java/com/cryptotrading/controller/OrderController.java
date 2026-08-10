@@ -45,7 +45,7 @@ public class OrderController {
         User user = userService.findUserProfileByJwt(jwt);
 
         Order order = orderService.getOrderById(orderId);
-        if(order.getUser().equals(user.getId())) {
+        if(order.getUser().getId().equals(user.getId())) {
             return ResponseEntity.ok(order);
         }else {
            throw new Exception("You don't have access");
