@@ -19,7 +19,7 @@ public interface AssetService {
 
     Asset updateAsset(Long assetId, BigDecimal quantity) throws Exception;
 
-    Asset findAssetByUserIdAndCoinId(Long userId, Long coinId);
+    Asset findAssetByUserIdAndCoinId(Long userId, String coinId);
 
     void deleteAsset(Long assetId);
 }

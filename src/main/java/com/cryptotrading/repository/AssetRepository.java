@@ -12,7 +12,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     Optional<Asset> findByUserIdAndCoinId(
             Long userId,
-            Long coinId
+            String coinId
     );
 
     Optional<Asset> findByIdAndUserId(

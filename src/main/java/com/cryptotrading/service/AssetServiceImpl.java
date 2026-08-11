@@ -23,6 +23,13 @@ public class AssetServiceImpl implements AssetService{
                              Coin coin,
                              BigDecimal quantity) {
 
+        if (user == null) {
+            throw new IllegalArgumentException(
+                    "User cannot be null"
+            );
+        }
+
+
         if (quantity == null ||
                 quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(
@@ -30,8 +37,15 @@ public class AssetServiceImpl implements AssetService{
             );
         }
 
+        if (coin.getCurrentPrice() == null) {
+            throw new IllegalArgumentException(
+                    "Coin current price is not available"
+            );
+        }
+
         Asset existingAsset =
-                assetRepository.findByUserIdAndCoinId(
+                assetRepository
+                        .findByUserIdAndCoinId(
                         user.getId(),
                         coin.getId()
                 ).orElse(null);
@@ -47,7 +61,7 @@ public class AssetServiceImpl implements AssetService{
         asset.setUser(user);
         asset.setCoin(coin);
         asset.setQuantity(quantity);
-        asset.setBuyPrice(BigDecimal.valueOf(coin.getCurrentPrice()));
+        asset.setBuyPrice(coin.getCurrentPrice());
         return assetRepository.save(asset);
     }
 
@@ -105,7 +119,7 @@ public class AssetServiceImpl implements AssetService{
     }
 
     @Override
-    public Asset findAssetByUserIdAndCoinId(Long userId, Long coinId) {
+    public Asset findAssetByUserIdAndCoinId(Long userId, String coinId) {
         return assetRepository
                 .findByUserIdAndCoinId(userId, coinId)
                 .orElse(null);

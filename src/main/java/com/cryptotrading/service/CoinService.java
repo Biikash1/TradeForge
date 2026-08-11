@@ -1,22 +1,23 @@
 package com.cryptotrading.service;
 
 import com.cryptotrading.model.Coin;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.List;
 
 public interface CoinService {
 
-    List<Coin> getCoinList(int page) throws Exception;
+    List<Coin> getCoinList(int page);
 
-    String getMarketChart(String coinId, int day) throws Exception;
+    JsonNode getMarketChart(String coinId, int day);
 
-    String getCoinDetails(String coinId) throws Exception;
+    JsonNode getCoinDetails(String coinId);
 
-    Coin findById(String coinId) throws Exception;
+    Coin findById( String coinId);
 
-    String searchCoin(String keyword) throws Exception;
+    JsonNode searchCoin(String keyword);
 
-    String getTop50CoinsByMarketCapRank() throws Exception;
+    JsonNode getTop50CoinsByMarketCapRank();
 
-    String getTreadingCoins() throws Exception;
+    JsonNode getTrendingCoins();
 }
