@@ -7,7 +7,6 @@ import com.cryptotrading.model.WalletTransaction;
 import com.cryptotrading.service.OrderService;
 import com.cryptotrading.service.UserService;
 import com.cryptotrading.service.WalletService;
-import com.cryptotrading.service.WalletServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

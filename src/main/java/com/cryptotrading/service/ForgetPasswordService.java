@@ -8,7 +8,7 @@ public interface ForgetPasswordService {
 
     ForgetPasswordToken createToken(
             User user,
-            String id, String otp,
+            String otp,
             VerificationType verificationType,
             String sendTo
     );
@@ -16,6 +16,11 @@ public interface ForgetPasswordService {
     ForgetPasswordToken findById(String id);
 
     ForgetPasswordToken findByUser(Long userId);
+
+    boolean verifyToken(
+            ForgetPasswordToken token,
+            String otp
+    );
 
     void deleteToken(ForgetPasswordToken token);
 }

@@ -7,9 +7,7 @@ import com.cryptotrading.service.CoinService;
 import com.cryptotrading.service.UserService;
 import com.cryptotrading.service.WatchlistService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.objenesis.instantiator.basic.AccessibleInstantiator;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

@@ -2,7 +2,6 @@ package com.cryptotrading.controller;
 
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.Wallet;
-import com.cryptotrading.model.WalletTransaction;
 import com.cryptotrading.model.Withdrawal;
 import com.cryptotrading.service.UserService;
 import com.cryptotrading.service.WalletService;

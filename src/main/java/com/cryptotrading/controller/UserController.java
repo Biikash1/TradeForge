@@ -126,23 +126,16 @@ public class UserController {
 
         String id = uuid.toString();
 
-        ForgetPasswordToken token =
-                forgetPasswordService.
-                        findByUser(user.getId());
-
-        /*
-         * Replace existing token instead of
-         * creating multiple active tokens.
-         */
-        if (token != null) {
-
-            forgetPasswordService.deleteToken(token);
+        try {
+            ForgetPasswordToken existingToken = forgetPasswordService.findByUser( user.getId() );
+            forgetPasswordService.deleteToken( existingToken );
+        } catch (Exception ignore) {
+            throw new RuntimeException(ignore);
         }
 
-        token =
+        ForgetPasswordToken token =
                 forgetPasswordService.createToken(
                         user,
-                        id,
                         otp,
                         request.getVerificationType(),
                         request.getSendTo()
@@ -153,7 +146,7 @@ public class UserController {
 
             emailService.sendVerificationOtpEmail(
                     user.getEmail(),
-                    token.getOtp()
+                    otp
             );
         }
 
@@ -176,17 +169,10 @@ public class UserController {
 
         ForgetPasswordToken token = forgetPasswordService.findById(id);
 
-        if (token == null) {
-            throw new IllegalArgumentException(
-                    "Invalid or expired password reset session"
-            );
-        }
-
-        if (!token.getOtp().equals(request.getOtp())) {
-            throw new IllegalArgumentException(
-                    "Invalid OTP"
-            );
-        }
+        forgetPasswordService.verifyToken(
+                token,
+                request.getOtp()
+        );
 
         userService.updatePassword(
                 token.getUser(),
