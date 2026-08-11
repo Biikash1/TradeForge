@@ -10,6 +10,6 @@ public interface WalletService {
     Wallet addBalance(Wallet wallet, Long money);
     Wallet findWalletById(Long id) throws Exception;
     Wallet walletToWalletTransaction(User sender, Wallet receiverWallet, Long amount) throws Exception;
-    Wallet payOrderPayment(Order order, User user) throws Exception;
+    Wallet payOrderPayment(Order order, User user) ;
 
 }

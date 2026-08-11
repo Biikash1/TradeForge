@@ -66,7 +66,7 @@ public class AssetServiceImpl implements AssetService{
     }
 
     @Override
-    public Asset getAssetById(Long assetId) throws Exception {
+    public Asset getAssetById(Long assetId) {
         return assetRepository.findById(assetId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
@@ -95,7 +95,7 @@ public class AssetServiceImpl implements AssetService{
     @Transactional
     @Override
     public Asset updateAsset(Long assetId,
-                             BigDecimal quantity) throws Exception {
+                             BigDecimal quantity){
         if (quantity == null) {
             throw new IllegalArgumentException(
                     "Quantity cannot be null"

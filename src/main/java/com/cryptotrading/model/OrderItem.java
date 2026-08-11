@@ -2,26 +2,39 @@ package com.cryptotrading.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 
 @Data
 @Entity
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class OrderItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Double quantity;
+    @Column(nullable = false, precision = 19, scale = 8)
+    private BigDecimal quantity;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "coin_id", nullable = false)
     private Coin coin;
 
-    private Double buyPrice;
+    @Column(precision = 19, scale = 8)
+    private BigDecimal buyPrice;
 
-    private Double sellPrice;
+    @Column(precision = 19, scale = 8)
+    private BigDecimal sellPrice;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false, unique = true)
     @JsonIgnore
     private Order order;
 }

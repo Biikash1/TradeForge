@@ -7,7 +7,6 @@ import com.cryptotrading.model.Wallet;
 import com.cryptotrading.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.handler.ExceptionHandlingWebHandler;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -67,7 +66,7 @@ public class WalletServiceImpl implements  WalletService{
     }
 
     @Override
-    public Wallet payOrderPayment(Order order, User user) throws Exception {
+    public Wallet payOrderPayment(Order order, User user) throws Exception{
         Wallet wallet = getUserWallet(user);
 
         if(order.getOrderType().equals(OrderType.BUY)) {

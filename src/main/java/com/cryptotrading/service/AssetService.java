@@ -11,13 +11,13 @@ public interface AssetService {
 
     Asset createAsset(User user, Coin coin, BigDecimal quantity);
 
-    Asset getAssetById(Long assetId) throws Exception;
+    Asset getAssetById(Long assetId);
 
     Asset getAssetByUserIdAndId(Long userId, Long assetId) throws Exception;
 
     List<Asset> getUserAssets(Long userId);
 
-    Asset updateAsset(Long assetId, BigDecimal quantity) throws Exception;
+    Asset updateAsset(Long assetId, BigDecimal quantity);
 
     Asset findAssetByUserIdAndCoinId(Long userId, String coinId);
 
