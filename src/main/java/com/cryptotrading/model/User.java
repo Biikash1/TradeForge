@@ -1,6 +1,7 @@
 package com.cryptotrading.model;
 
 import com.cryptotrading.domain.USER_ROLE;
+import com.cryptotrading.dto.TwoFactorAuth;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;

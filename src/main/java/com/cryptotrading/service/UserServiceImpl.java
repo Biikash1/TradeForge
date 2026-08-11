@@ -2,7 +2,7 @@ package com.cryptotrading.service;
 
 import com.cryptotrading.config.JwtProvider;
 import com.cryptotrading.domain.VerificationType;
-import com.cryptotrading.model.TwoFactorAuth;
+import com.cryptotrading.dto.TwoFactorAuth;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
