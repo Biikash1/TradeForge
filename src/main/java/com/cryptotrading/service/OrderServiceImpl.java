@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -119,7 +118,7 @@ public class OrderServiceImpl implements OrderService {
          * BUY:
          * User wallet -> exchange
          */
-        walletService.payOrderPayment(
+        walletService.payOrder(
                 order,
                 user
         );
@@ -208,7 +207,7 @@ public class OrderServiceImpl implements OrderService {
          * Crypto asset -> exchange
          * Money -> user's wallet
          */
-        walletService.payOrderPayment(
+        walletService.payOrder(
                 order,
                 user
         );

@@ -5,7 +5,6 @@ import com.cryptotrading.exception.InvalidOtpException;
 import com.cryptotrading.exception.OtpExpiredException;
 import com.cryptotrading.exception.ResourceNotFoundException;
 import com.cryptotrading.model.ForgetPasswordToken;
-import com.cryptotrading.model.TwoFactorOTP;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.ForgetPasswordRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor

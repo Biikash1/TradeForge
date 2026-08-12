@@ -3,13 +3,14 @@ package com.cryptotrading.service;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.Withdrawal;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface WithdrawalService {
 
-    Withdrawal requestWithdrawal(Long amount, User user);
+    Withdrawal requestWithdrawal(BigDecimal amount, User user);
 
-    Withdrawal processWithWithdrawal(Long withdrawalId, boolean accept) throws Exception;
+    Withdrawal processWithdrawal(Long withdrawalId, boolean accept);
 
     List<Withdrawal> getUsersWithdrawalHistory(User user);
 

@@ -7,9 +7,9 @@ import com.cryptotrading.model.Wallet;
 import com.cryptotrading.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -18,68 +18,200 @@ public class WalletServiceImpl implements  WalletService{
     private final WalletRepository walletRepository;
 
     @Override
+    @Transactional
     public Wallet getUserWallet(User user) {
-        Wallet wallet = walletRepository.findByUserId(user.getId());
-        if(wallet == null) {
-            wallet = new Wallet();
-            wallet.setUser(user);
+
+        if (user == null || user.getId() == null) {
+            throw new IllegalArgumentException("Invalid user");
         }
-        return wallet;
+
+        return walletRepository.findByUserId(user.getId())
+                .orElseGet(() -> {
+                    Wallet wallet = Wallet.builder()
+                            .user(user)
+                            .balance(BigDecimal.ZERO)
+                            .build();
+
+                    return walletRepository.save(wallet);
+                });
     }
 
     @Override
-    public Wallet addBalance(Wallet wallet, Long money) {
-        BigDecimal balance = wallet.getBalance();
-        BigDecimal newBalance = balance.add(BigDecimal.valueOf(money));
+    @Transactional
+    public Wallet addBalance(Wallet wallet,  BigDecimal amount) {
 
-        wallet.setBalance(newBalance);
+        validateAmount(amount);
+
+        if (wallet == null) {
+            throw new IllegalArgumentException("Wallet cannot be null");
+        }
+
+        BigDecimal currentBalance = getBalance(wallet);
+
+        wallet.setBalance(
+                currentBalance.add(amount)
+        );
+
         return walletRepository.save(wallet);
     }
 
     @Override
-    public Wallet findWalletById(Long id) throws Exception {
-        Optional<Wallet> wallet = walletRepository.findById(id);
-        if (wallet.isPresent()) {
-            return wallet.get();
+    public Wallet findWalletById(Long id)  {
+        if (id == null) {
+            throw new IllegalArgumentException("Wallet ID cannot be null");
         }
-        throw new Exception("Wallet Not found");
+
+        return walletRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Wallet not found with id: " + id)
+                );
     }
 
-    @Override
-    public Wallet walletToWalletTransaction(User sender, Wallet receiverWallet, Long amount) throws Exception {
-        Wallet senderWallet = getUserWallet(sender);
-        if(senderWallet.getBalance().compareTo(BigDecimal.valueOf(amount)) < 0) {
-            throw new Exception("Insufficient balance.....");
-        }
-        BigDecimal senderBalance = senderWallet
-                .getBalance()
-                .subtract(BigDecimal.valueOf(amount));
-        senderWallet.setBalance(senderBalance);
-        walletRepository.save(senderWallet);
 
-        BigDecimal receiverBalance = receiverWallet
-                .getBalance()
-                .add(BigDecimal.valueOf(amount));
-        receiverWallet.setBalance(receiverBalance);
+   @Override
+    @Transactional
+    public Wallet transfer(User sender, Wallet receiverWallet,  BigDecimal amount) {
+             validateAmount(amount);
+
+        if (sender == null) {
+            throw new IllegalArgumentException("Sender cannot be null");
+        }
+
+        if (receiverWallet == null) {
+            throw new IllegalArgumentException(
+                    "Receiver wallet cannot be null"
+            );
+        }
+
+        Wallet senderWallet = getUserWallet(sender);
+
+        if (senderWallet.getId().equals(receiverWallet.getId())) {
+            throw new IllegalArgumentException(
+                    "Sender and receiver wallets cannot be the same"
+            );
+        }
+
+        BigDecimal senderBalance = getBalance(senderWallet);
+
+        if (senderBalance.compareTo(amount) < 0) {
+            throw new IllegalStateException(
+                    "Insufficient wallet balance"
+            );
+        }
+
+        senderWallet.setBalance(
+                senderBalance.subtract(amount)
+        );
+
+        BigDecimal receiverBalance = getBalance(receiverWallet);
+
+        receiverWallet.setBalance(
+                receiverBalance.add(amount)
+        );
+
+        walletRepository.save(senderWallet);
         walletRepository.save(receiverWallet);
+
         return senderWallet;
     }
 
     @Override
-    public Wallet payOrderPayment(Order order, User user) throws Exception{
+    public Wallet payOrder(Order order, User user){
+
+        if (order == null) {
+            throw new IllegalArgumentException("Order cannot be null");
+        }
+
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+
+        BigDecimal orderPrice = order.getPrice();
+
+        validateAmount(orderPrice);
+
         Wallet wallet = getUserWallet(user);
 
-        if(order.getOrderType().equals(OrderType.BUY)) {
-            BigDecimal newBalance = wallet.getBalance().subtract(order.getPrice());
-            if(newBalance.compareTo(order.getPrice()) < 0) {
-                throw new Exception("Insufficient funds for this transaction");
+        BigDecimal currentBalance = getBalance(wallet);
+
+        if (order.getOrderType() == OrderType.BUY) {
+
+            if (currentBalance.compareTo(orderPrice) < 0) {
+                throw new IllegalStateException(
+                        "Insufficient funds for this transaction"
+                );
             }
-            wallet.setBalance(newBalance);
-        }else {
-            BigDecimal newBalance = wallet.getBalance().add(order.getPrice());
-            wallet.setBalance(newBalance);
+
+            wallet.setBalance(
+                    currentBalance.subtract(orderPrice)
+            );
+
+        } else if (order.getOrderType() == OrderType.SELL) {
+
+            wallet.setBalance(
+                    currentBalance.add(orderPrice)
+            );
+
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported order type: " + order.getOrderType()
+            );
         }
-        walletRepository.save(wallet);
-        return wallet;
+
+        return walletRepository.save(wallet);
     }
+
+    @Override
+    @Transactional
+    public Wallet withdraw(Wallet wallet, BigDecimal amount) {
+
+        validateAmount(amount);
+
+        if (wallet == null) {
+            throw new IllegalArgumentException(
+                    "Wallet cannot be null"
+            );
+        }
+
+        BigDecimal currentBalance = wallet.getBalance();
+
+        if (currentBalance == null) {
+            currentBalance = BigDecimal.ZERO;
+        }
+
+        if (currentBalance.compareTo(amount) < 0) {
+            throw new IllegalStateException(
+                    "Insufficient wallet balance"
+            );
+        }
+
+        wallet.setBalance(
+                currentBalance.subtract(amount)
+        );
+
+        return walletRepository.save(wallet);
+    }
+
+    private BigDecimal getBalance(Wallet wallet) {
+
+        return wallet.getBalance() != null
+                ? wallet.getBalance()
+                : BigDecimal.ZERO;
+    }
+
+    private void validateAmount(BigDecimal amount) {
+
+        if (amount == null) {
+            throw new IllegalArgumentException(
+                    "Amount cannot be null"
+            );
+        }
+
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "Amount must be greater than zero"
+            );
+        }
+    }
+
 }
