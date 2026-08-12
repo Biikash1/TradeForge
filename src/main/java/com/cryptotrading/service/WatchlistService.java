@@ -6,11 +6,11 @@ import com.cryptotrading.model.Watchlist;
 
 public interface WatchlistService {
 
-    Watchlist findUserWatchList(Long userId) throws Exception;
+    Watchlist findUserWatchlist(Long userId);
 
-    Watchlist createWatchList(User user);
+    Watchlist createWatchlist(User user);
 
-    Watchlist findById(Long id) throws Exception;
+    Watchlist findById(Long id);
 
-    Coin addItemToWatchList(Coin coin, User user) throws Exception;
+    Watchlist toggleCoin(Coin coin, User user);
 }

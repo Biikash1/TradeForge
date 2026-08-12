@@ -1,5 +1,6 @@
 package com.cryptotrading.controller;
 
+import com.cryptotrading.dto.WatchlistResponse;
 import com.cryptotrading.model.Coin;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.Watchlist;
@@ -19,32 +20,38 @@ public class WatchlistController {
     private final UserService userService;;
     private final CoinService coinService;
 
-    @GetMapping("/user")
-    public ResponseEntity<Watchlist> getUserWatchlist(
-            @RequestHeader("Authorization") String jwt) throws Exception {
+    @GetMapping
+    public ResponseEntity<WatchlistResponse> getUserWatchlist(
+            @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
-        Watchlist watchlist = watchlistService.findUserWatchList(user.getId());
-        return ResponseEntity.ok(watchlist);
+        Watchlist watchlist = watchlistService.findUserWatchlist(user.getId());
+        return ResponseEntity.ok(
+                WatchlistResponse.from(watchlist)
+        );
     }
 
 
     @GetMapping("/{watchlistId}")
-    public ResponseEntity<Watchlist> getUserWatchlistById(
-           @PathVariable Long watchlistId) throws Exception {
+    public ResponseEntity<WatchlistResponse> getWatchlistById(
+           @PathVariable Long watchlistId) {
 
         Watchlist watchlist = watchlistService.findById(watchlistId);
-        return ResponseEntity.ok(watchlist);
+        return ResponseEntity.ok(
+                WatchlistResponse.from(watchlist)
+        );
     }
 
-    @GetMapping("/add/coin/{coinId}")
-    public ResponseEntity<Coin> addItemsWatchlist(
+    @GetMapping("/coin/{coinId}")
+    public ResponseEntity<WatchlistResponse> toggleCoin(
             @RequestHeader("Authorization") String jwt,
             @PathVariable String coinId) throws Exception {
 
         User user = userService.findUserProfileByJwt(jwt);
         Coin coin = coinService.findById(coinId);
-        Coin addedCoin = watchlistService.addItemToWatchList(coin, user);
-        return ResponseEntity.ok(addedCoin);
+        Watchlist watchlist = watchlistService.toggleCoin(coin, user);
+        return ResponseEntity.ok(
+                WatchlistResponse.from(watchlist)
+        );
     }
 }
