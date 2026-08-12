@@ -9,7 +9,6 @@ import lombok.*;
 @Entity
 @Data
 @NoArgsConstructor
-@RequiredArgsConstructor
 @Builder
 @AllArgsConstructor
 public class User {
@@ -24,11 +23,13 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(nullable = false, unique = true)
+    private String mobile;
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String password;
 
-    private Long mobileNumber;
 
     @Embedded
     @Builder.Default

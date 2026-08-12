@@ -49,7 +49,7 @@ public class AuthController {
         newUser.setFullName(request.getFullName());
         newUser.setEmail(request.getEmail());
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
-        newUser.setMobileNumber(request.getMobileNumber());
+        newUser.setMobile(request.getMobile());
 
         User savedUser = userRepository.save(newUser);
 
@@ -193,7 +193,7 @@ public class AuthController {
         response.setId(user.getId());
         response.setFullName(user.getFullName());
         response.setEmail(user.getEmail());
-        response.setMobileNumber(user.getMobileNumber());
+        response.setMobile(user.getMobile());
 
         response.setJwt(jwt);
         response.setStatus(true);

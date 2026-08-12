@@ -1,16 +1,33 @@
 package com.cryptotrading.service;
 
+import com.cryptotrading.dto.GeneratedOtp;
+import com.cryptotrading.domain.VerificationPurpose;
 import com.cryptotrading.domain.VerificationType;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.VerificationCode;
 
 public interface VerificationCodeService {
 
-     VerificationCode sendVerificationCodeByUser(User user, VerificationType verificationType);
+    GeneratedOtp generateVerificationCode(
+            User user,
+            VerificationType verificationType,
+            VerificationPurpose verificationPurpose
+    );
 
-     VerificationCode getVerificationCodeById(Long id) throws Exception;
+    VerificationCode getVerificationCodeById(Long id);
 
-     VerificationCode getVerificationCodeByUser(Long userId);
+    VerificationCode getLatestVerificationCode(
+            Long userId,
+            VerificationType verificationType,
+            VerificationPurpose verificationPurpose
+    );
 
-     void deleteVerificationCodeById(VerificationCode verificationCode);
+    boolean verifyCode(
+            VerificationCode verificationCode,
+            String otp
+    );
+
+    void deleteVerificationCode(
+            VerificationCode verificationCode
+    );
 }

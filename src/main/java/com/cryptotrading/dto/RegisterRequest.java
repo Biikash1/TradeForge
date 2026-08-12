@@ -21,5 +21,5 @@ public class RegisterRequest {
     private String password;
 
     @NotNull(message = "Mobile number is required")
-    private Long mobileNumber;
+    private String mobile;
 }

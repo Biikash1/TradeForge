@@ -19,19 +19,24 @@ public class EmailService {
             + "This OTP is valid for a limited time.\n"
             + "Please do not share this code with anyone.";
 
-    public void sendVerificationOtpEmail(String email, String otp) throws MessagingException {
+    public void sendVerificationOtpEmail(String email, String otp) {
 
         validateEmailAndOtp(email, otp);
 
-        MimeMessage message = javaMailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+        try {
 
-        helper.setTo(email);
-        helper.setSubject(OTP_SUBJECT);
-        helper.setText(
-                String.format(OTP_MESSAGE, otp)
-        );
-        javaMailSender.send(message);
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+
+            helper.setTo(email);
+            helper.setSubject(OTP_SUBJECT);
+            helper.setText(
+                    String.format(OTP_MESSAGE, otp)
+            );
+            javaMailSender.send(message);
+        } catch (MessagingException e) {
+            throw new RuntimeException("Failed to send verification email",e);
+        }
     }
 
     private void validateEmailAndOtp( String email, String otp) {

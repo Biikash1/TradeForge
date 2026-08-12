@@ -1,19 +1,19 @@
 package com.cryptotrading.Utils;
 
-import java.util.Random;
+import java.security.SecureRandom;
 
-public class OtpUtils {
+public final class OtpUtils {
 
-    public static final String generateOTP() {
-        int otpLength = 6;
-        Random random = new Random();
+    private static final SecureRandom SECURE_RANDOM =
+            new SecureRandom();
 
-        StringBuilder otp = new StringBuilder(otpLength);
+    private OtpUtils() {
+    }
 
-        for(int i = 0; i < otpLength; i++) {
-            otp.append(random.nextInt(10));
-        }
-        return otp.toString()
-                ;
+    public static String generateOTP() {
+
+        int otp = 100000 + SECURE_RANDOM.nextInt(900000);
+
+        return String.valueOf(otp);
     }
 }

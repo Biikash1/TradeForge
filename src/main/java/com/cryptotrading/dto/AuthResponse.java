@@ -8,7 +8,7 @@ public class AuthResponse {
     private Long id;
     private String fullName;
     private String email;
-    private Long mobileNumber;
+    private String mobile;
 
     private String jwt;
     private boolean status;

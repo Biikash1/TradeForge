@@ -1,25 +1,22 @@
 package com.cryptotrading.controller;
 
-import com.cryptotrading.Utils.OtpUtils;
+import com.cryptotrading.dto.GeneratedOtp;
+import com.cryptotrading.domain.VerificationPurpose;
 import com.cryptotrading.domain.VerificationType;
 import com.cryptotrading.dto.ApiResponse;
 import com.cryptotrading.dto.AuthResponse;
 import com.cryptotrading.dto.ForgetPasswordTokenRequest;
 import com.cryptotrading.dto.ResetPasswordRequest;
-import com.cryptotrading.model.ForgetPasswordToken;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.VerificationCode;
 import com.cryptotrading.service.EmailService;
-import com.cryptotrading.service.ForgetPasswordService;
 import com.cryptotrading.service.UserService;
 import com.cryptotrading.service.VerificationCodeService;
+import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -28,7 +25,6 @@ public class UserController {
 
     private final UserService userService;
     private final EmailService emailService;
-    private final ForgetPasswordService forgetPasswordService;
     private final VerificationCodeService verificationCodeService;
 
     @GetMapping("/profile")
@@ -46,20 +42,25 @@ public class UserController {
             @PathVariable VerificationType verificationType) throws Exception
     {
         User user = userService.findUserProfileByJwt(jwt);
-        VerificationCode verificationCode =
+
+        VerificationPurpose purpose =
+                verificationType == VerificationType.EMAIL
+                        ? VerificationPurpose.EMAIL_VERIFICATION
+                        : VerificationPurpose.MOBILE_VERIFICATION;
+
+        GeneratedOtp generateOtp =
                 verificationCodeService
-                        .sendVerificationCodeByUser(
+                        .generateVerificationCode(
                                 user,
-                                verificationType
+                                verificationType,
+                                purpose
                         );
 
-        if (verificationType == VerificationType.EMAIL) {
-
-            emailService.sendVerificationOtpEmail(
-                    user.getEmail(),
-                    verificationCode.getOtp()
-            );
-        }
+        sendOtp(
+                user,
+                verificationType,
+                generateOtp.getOtp()
+        );
 
         ApiResponse response = new ApiResponse();
 
@@ -70,44 +71,74 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/enable-two-factor/send-otp")
+    public ResponseEntity<ApiResponse> sendTwoFactorOtp(
+            @RequestHeader("Authorization") String jwt,
+            @RequestParam VerificationType verificationType
+    ) throws MessagingException {
+
+        User user =
+                userService.findUserProfileByJwt(jwt);
+
+        GeneratedOtp generatedOtp =
+                verificationCodeService.generateVerificationCode(
+                        user,
+                        verificationType,
+                        VerificationPurpose.TWO_FACTOR_AUTH
+                );
+
+        sendOtp(
+                user,
+                verificationType,
+                generatedOtp.getOtp()
+        );
+
+        ApiResponse response =
+                new ApiResponse();
+
+        response.setMessage(
+                "Two-factor authentication OTP sent successfully"
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
 
     @PatchMapping("/enable-two-factor/verify-otp/{otp}")
     public ResponseEntity<User> enableTwoFactorAuthentication(
             @PathVariable String otp,
-            @RequestHeader("Authorization") String jwt) throws Exception {
+            @RequestHeader("Authorization") String jwt) {
         User user = userService.findUserProfileByJwt(jwt);
 
+        VerificationType verificationType =
+                user.getTwoFactorAuth().getSendTo() != null
+                        ? user.getTwoFactorAuth().getSendTo()
+                        : VerificationType.EMAIL;
+
         VerificationCode verificationCode =
-                verificationCodeService
-                        .getVerificationCodeByUser(user.getId());
+                verificationCodeService.getLatestVerificationCode(
+                        user.getId(),
+                        verificationType,
+                        VerificationPurpose.TWO_FACTOR_AUTH
+                );
 
-        if (verificationCode == null) {
-            throw new IllegalArgumentException(
-                    "Verification code not found or expired"
-            );
-        }
+        verificationCodeService.verifyCode(
+                verificationCode,
+                otp
+        );
 
-        if (!verificationCode.getOtp().equals(otp)) {
-            throw new IllegalArgumentException(
-                    "Invalid OTP"
-            );
-        }
 
         String sendTo =
-                verificationCode.getVerificationType()
-                        == VerificationType.EMAIL
-                        ? verificationCode.getEmail()
-                        : verificationCode.getMobile();
+                verificationType == VerificationType.EMAIL
+                        ? user.getEmail()
+                        : user.getMobile();
 
         User updatedUser =
                 userService.enableTwoFactorAuthentication(
-                        verificationCode.getVerificationType(),
+                        verificationType,
                         sendTo,
                         user
                 );
-
-        verificationCodeService
-                .deleteVerificationCodeById(verificationCode);
 
         return ResponseEntity.ok(updatedUser);
     }
@@ -120,66 +151,76 @@ public class UserController {
                 request.getSendTo()
         );
 
-        String otp = OtpUtils.generateOTP();
+        VerificationType verificationType =
+                request.getVerificationType();
 
-        UUID uuid = UUID.randomUUID();
 
-        String id = uuid.toString();
-
-        try {
-            ForgetPasswordToken existingToken = forgetPasswordService.findByUser( user.getId() );
-            forgetPasswordService.deleteToken( existingToken );
-        } catch (Exception ignore) {
-            throw new RuntimeException(ignore);
+        if (verificationType == null) {
+            verificationType = VerificationType.EMAIL;
         }
 
-        ForgetPasswordToken token =
-                forgetPasswordService.createToken(
+
+        GeneratedOtp generatedOtp =
+                verificationCodeService.generateVerificationCode(
                         user,
-                        otp,
-                        request.getVerificationType(),
-                        request.getSendTo()
+                        verificationType,
+                        VerificationPurpose.PASSWORD_RESET
                 );
 
-        if (request.getVerificationType()
-                == VerificationType.EMAIL) {
 
-            emailService.sendVerificationOtpEmail(
-                    user.getEmail(),
-                    otp
-            );
-        }
-
-        AuthResponse response = new AuthResponse();
-
-        response.setSession(token.getId());
-        response.setMessage(
-                "Password reset OTP sent successfully"
+        sendOtp(
+                user,
+                verificationType,
+                generatedOtp.getOtp()
         );
-        response.setStatus(true);
 
-        return ResponseEntity.ok(response);
+            AuthResponse response = new AuthResponse();
+
+            response.setSession(
+                    generatedOtp
+                            .getVerificationCode()
+                            .getId()
+                            .toString()
+            );
+
+            response.setMessage(
+                    "Password reset OTP sent successfully"
+            );
+
+            response.setStatus(true);
+
+            return ResponseEntity.ok(response);
+
     }
 
 
     @PatchMapping("/reset-password/verify-otp")
     public ResponseEntity<ApiResponse> VerifyResetPassword(
-            @RequestParam String id,
+            @RequestParam Long id,
             @Valid @RequestBody ResetPasswordRequest request) throws Exception {
 
-        ForgetPasswordToken token = forgetPasswordService.findById(id);
 
-        forgetPasswordService.verifyToken(
-                token,
+        VerificationCode verificationCode =
+                verificationCodeService.getVerificationCodeById(id);
+
+        if (verificationCode.getVerificationPurpose()
+                != VerificationPurpose.PASSWORD_RESET) {
+
+            throw new IllegalArgumentException(
+                    "Invalid verification purpose"
+            );
+        }
+
+        verificationCodeService.verifyCode(
+                verificationCode,
                 request.getOtp()
         );
 
         userService.updatePassword(
-                token.getUser(),
+                verificationCode.getUser(),
                 request.getPassword()
         );
 
-        forgetPasswordService.deleteToken(token);
 
         ApiResponse response = new ApiResponse();
 
@@ -189,5 +230,40 @@ public class UserController {
 
         return ResponseEntity.ok(response);
     }
+
+  // Common OTP Sender
+  private void sendOtp(
+          User user,
+          VerificationType verificationType,
+          String otp
+  ) {
+
+      switch (verificationType) {
+
+          case EMAIL -> {
+
+              emailService.sendVerificationOtpEmail(
+                      user.getEmail(),
+                      otp
+              );
+          }
+
+          case MOBILE -> {
+
+              /*
+               * TODO:
+               *
+               * smsService.sendOtp(
+               *      user.getMobile(),
+               *      otp
+               * );
+               */
+
+              throw new UnsupportedOperationException(
+                      "SMS OTP service is not implemented yet"
+              );
+          }
+      }
+  }
 
 }

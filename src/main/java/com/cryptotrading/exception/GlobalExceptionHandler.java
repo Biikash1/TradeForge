@@ -1,5 +1,6 @@
 package com.cryptotrading.exception;
 
+import com.cryptotrading.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -57,6 +58,38 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(response);
+    }
+
+    @ExceptionHandler(
+            VerificationCodeNotFoundException.class
+    )
+    public ResponseEntity<ApiResponse> handleVerificationCodeNotFound(
+            VerificationCodeNotFoundException exception
+    ) {
+
+        ApiResponse response = new ApiResponse();
+
+        response.setMessage(exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+
+    @ExceptionHandler(
+            InvalidVerificationCodeException.class
+    )
+    public ResponseEntity<ApiResponse> handleInvalidVerificationCode(
+            InvalidVerificationCodeException exception
+    ) {
+
+        ApiResponse response = new ApiResponse();
+
+        response.setMessage(exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
                 .body(response);
     }
 }
