@@ -1,4 +1,8 @@
 package com.cryptotrading.repository;
 
-public class PaymentOrderRepository {
+import com.cryptotrading.model.PaymentOrder;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long> {
+
 }

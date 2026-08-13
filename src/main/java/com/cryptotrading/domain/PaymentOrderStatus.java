@@ -1,4 +1,7 @@
 package com.cryptotrading.domain;
 
-public class PaymentOrderStatus {
+public enum PaymentOrderStatus {
+    PENDING,
+    SUCCESS,
+    FAILED
 }
