@@ -1,4 +1,4 @@
-###  ** 🚀 TradeForge**
+###  ** 🚀 TradeForge **
 
    **TradeForge** — A full-stack crypto trading platform built with Java, spring boot and react, 
        enabling users to buy, sell, and track cryptocurrencies in real times.
@@ -332,3 +332,35 @@ erDiagram
 
     USERS ||--o{ FORGOT_PASSWORD_TOKENS : receives
 ```
+
+## Production-Ready Payment Architecture :
+    - **RAZORPAY and STRIPE**
+
+                   PaymentOrder
+                         │
+                     PENDING
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+         Razorpay                 Stripe
+             │                       │
+             ▼                       ▼
+       Payment API             Checkout Session
+             │                       │
+             ▼                       ▼
+       Verification             Webhook
+             │                       │
+             └───────────┬───────────┘
+                         ▼
+                  Verify payment
+                         │
+                  Check amount
+                  Check currency
+                  Check order ID
+                  Check idempotency
+                         │
+                         ▼
+                      SUCCESS
+                         │
+                         ▼
+                   Credit Wallet
