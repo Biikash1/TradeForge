@@ -334,11 +334,11 @@ erDiagram
 ```
 
 ## Production-Ready Payment Architecture :
-    - **RAZORPAY and STRIPE**
+    - **Payment Methods:** **RAZORPAY and STRIPE**
 
-                   PaymentOrder
+                    PaymentOrder
                          │
-                     PENDING
+                      PENDING
                          │
              ┌───────────┴───────────┐
              ▼                       ▼
