@@ -332,36 +332,50 @@ erDiagram
 
     USERS ||--o{ FORGOT_PASSWORD_TOKENS : receives
 ```
+## 💳 Production-Ready Payment Architecture
 
-## Production-Ready Payment Architecture :
-```markdown
-- **Payment Methods:** **RAZORPAY and STRIPE**
+TradeForge provides a secure and extensible payment architecture supporting
+multiple payment providers while maintaining a centralized internal
+`PaymentOrder` for transaction tracking and wallet processing.
+
+### Supported Payment Methods
+
+- **RAZORPAY**
+- **STRIPE**
+
+### Payment Flow
+
+```mermaid
+flowchart TD
+    A[User Initiates Wallet Top-Up] --> B[Create PaymentOrder]
+    B --> C{Payment Method}
+
+    C -->|RAZORPAY| D[Razorpay Payment Link]
+    C -->|STRIPE| E[Stripe Checkout Session]
+
+    D --> F[Razorpay Payment Verification]
+    E --> G[Stripe Webhook / Payment Verification]
+
+    F --> H[Validate Payment]
+    G --> H
+
+    H --> I{Validation Checks}
+
+    I --> I1[Verify Amount]
+    I --> I2[Verify Currency]
+    I --> I3[Verify Order ID]
+    I --> I4[Verify Payment Status]
+    I --> I5[Idempotency Check]
+
+    I1 --> J{Payment Valid?}
+    I2 --> J
+    I3 --> J
+    I4 --> J
+    I5 --> J
+
+    J -->|Yes| K[Mark Payment SUCCESS]
+    J -->|No| L[Mark Payment FAILED]
+
+    K --> M[Credit User Wallet]
+    L --> N[Payment Failed Response]
 ```
-                    PaymentOrder
-                         │
-                      PENDING
-                         │
-             ┌───────────┴───────────┐
-             ▼                       ▼
-         Razorpay                 Stripe
-             │                       │
-             ▼                       ▼
-       Payment API             Checkout Session
-             │                       │
-             ▼                       ▼
-       Verification             Webhook
-             │                       │
-             └───────────┬───────────┘
-                         ▼
-                  Verify payment
-                         │
-                  Check amount
-                  Check currency
-                  Check order ID
-                  Check idempotency
-                         │
-                         ▼
-                      SUCCESS
-                         │
-                         ▼
-                   Credit Wallet
