@@ -1,7 +1,8 @@
-######  🚀 TradeForge
+# 🚀 TradeForge
 
-   **TradeForge** — A full-stack crypto trading platform built with Java, spring boot and react, 
-       enabling users to buy, sell, and track cryptocurrencies in real times.
+> A full-stack crypto trading platform built with Java, Spring Boot, and React.
+
+TradeForge enables users to buy, sell, and track cryptocurrencies in real time.
 
 #### Database Design & Tables
 
