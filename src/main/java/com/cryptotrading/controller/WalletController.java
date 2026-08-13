@@ -1,10 +1,8 @@
 package com.cryptotrading.controller;
 
-import com.cryptotrading.dto.PaymentResponse;
 import com.cryptotrading.dto.WalletResponse;
 import com.cryptotrading.dto.WalletTransferRequest;
 import com.cryptotrading.model.Order;
-import com.cryptotrading.model.PaymentOrder;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.Wallet;
 import com.cryptotrading.service.OrderService;
@@ -28,6 +26,7 @@ public class WalletController {
     private final OrderService orderService;
     private final PaymentService paymentService;
 
+    //  Get authenticated user's wallet.
     @GetMapping
     public ResponseEntity<WalletResponse> getUserWallet(
             @RequestHeader("Authorization") String jwt) {
@@ -39,6 +38,7 @@ public class WalletController {
         return ResponseEntity.ok(WalletResponse.from(wallet));
     }
 
+    // Transfer funds to another wallet
     @PostMapping("/{walletId}/transfer")
     public ResponseEntity<WalletResponse> transfer(
             @RequestHeader("Authorization") String jwt,
@@ -58,6 +58,7 @@ public class WalletController {
         return ResponseEntity.ok(WalletResponse.from(wallet));
     }
 
+    //Pay for a trading order using wallet balance.
     @PostMapping("/order/{orderId}/pay")
     public ResponseEntity<WalletResponse> payOrder(
             @RequestHeader("Authorization") String jwt,
@@ -71,24 +72,32 @@ public class WalletController {
         return ResponseEntity.ok(WalletResponse.from(wallet));
     }
 
-    @PostMapping("/deposite")
+    /**
+     * Verify an external payment and credit the user's wallet.
+     *
+     * Razorpay:
+     *     payment_id = Razorpay payment ID
+     *
+     * Stripe:
+     *     payment_id = Stripe Checkout Session ID
+     */
+
+    @PostMapping("/deposit")
     public ResponseEntity<WalletResponse> addBalanceToWallet(
             @RequestHeader("Authorization") String jwt,
             @RequestParam(name="order_id") Long orderId,
-            @RequestParam(name="payment_id") String paymentId) throws Exception {
+            @RequestParam(name="payment_id") String paymentId){
 
         User user = userService.findUserProfileByJwt(jwt);
 
-        Wallet wallet = walletService.getUserWallet(user);
+        Wallet wallet = paymentService.processPaymentAndCreditWallet(
+                user,
+                orderId,
+                paymentId
+        );
 
-        PaymentOrder order = paymentService.getPaymentOrderById(orderId);
-
-        Boolean status = paymentService.ProccedPaymentOrder(order, paymentId);
-
-        if(status) {
-            wallet = walletService.addBalance(wallet, order.getAmount());
-        }
-
-        return ResponseEntity.ok(WalletResponse.from(wallet));
+        return ResponseEntity.ok(
+                WalletResponse.from(wallet)
+        );
     }
 }

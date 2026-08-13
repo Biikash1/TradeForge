@@ -4,6 +4,7 @@ import com.cryptotrading.domain.PaymentMethod;
 import com.cryptotrading.dto.PaymentResponse;
 import com.cryptotrading.model.PaymentOrder;
 import com.cryptotrading.model.User;
+import com.cryptotrading.model.Wallet;
 import com.razorpay.RazorpayException;
 import com.stripe.exception.StripeException;
 
@@ -18,13 +19,19 @@ public interface PaymentService {
 
     PaymentOrder getPaymentOrderById(Long id);
 
+    Wallet processPaymentAndCreditWallet(
+            User user,
+            Long orderId,
+            String paymentId
+    );
+
     boolean processRazorpayPayment(PaymentOrder paymentOrder,
-                                     String paymentId) throws RazorpayException;
+                                     String paymentId);
 
     boolean processStripePayment(PaymentOrder paymentOrder,
-            String sessionId) throws StripeException;
+            String sessionId);
 
-    PaymentResponse createRazorpayPaymentLink(User user, BigDecimal amount, Long orderId) throws RazorpayException;
+    PaymentResponse createRazorpayPaymentLink(User user, BigDecimal amount, Long orderId);
 
-    PaymentResponse createStripePaymentLink(User user, BigDecimal amount, Long orderId) throws StripeException;
+    PaymentResponse createStripePaymentLink(User user, BigDecimal amount, Long orderId);
 }

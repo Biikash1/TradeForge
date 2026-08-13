@@ -40,7 +40,7 @@ public class OrderController {
     @GetMapping("/{orderId}")
     public ResponseEntity<Order> getOrderById(
             @RequestHeader("Authorization") String jwt,
-            @PathVariable Long orderId) throws Exception {
+            @PathVariable Long orderId)  {
 
         User user = userService.findUserProfileByJwt(jwt);
 
@@ -61,7 +61,7 @@ public class OrderController {
     public ResponseEntity<List<Order>> getAllOrderForUser(
             @RequestHeader("Authorization") String jwt,
             @RequestParam(required = false) OrderType orderType,
-            @RequestParam(required = false) String assetSymbol) throws Exception {
+            @RequestParam(required = false) String assetSymbol){
 
        User user = userService.findUserProfileByJwt(jwt);
 

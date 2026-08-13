@@ -74,7 +74,7 @@ public class WithdrawalController {
 
     @GetMapping("/admin")
     public ResponseEntity<List<WithdrawalResponse>> getAllWithdrawalRequests(
-            @RequestHeader("Authorization") String jwt) throws Exception {
+            @RequestHeader("Authorization") String jwt) {
 
         userService.findUserProfileByJwt(jwt);
 

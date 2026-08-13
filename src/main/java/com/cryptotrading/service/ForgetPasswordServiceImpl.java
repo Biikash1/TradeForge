@@ -61,6 +61,7 @@ public class ForgetPasswordServiceImpl implements ForgetPasswordService{
     @Override
     @Transactional(readOnly = true)
     public ForgetPasswordToken findById(String id) {
+
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException(
                     "Token ID cannot be empty"
@@ -173,6 +174,7 @@ public class ForgetPasswordServiceImpl implements ForgetPasswordService{
 
     @Override
     public void deleteToken(ForgetPasswordToken token) {
+
         if (token == null) {
             return;
         }

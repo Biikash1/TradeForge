@@ -77,7 +77,7 @@ public class AssetServiceImpl implements AssetService{
     }
 
     @Override
-    public Asset getAssetByUserIdAndId(Long userId, Long assetId) throws Exception {
+    public Asset getAssetByUserIdAndId(Long userId, Long assetId) {
         return assetRepository
                 .findByIdAndUserId(assetId, userId)
                 .orElseThrow(() ->

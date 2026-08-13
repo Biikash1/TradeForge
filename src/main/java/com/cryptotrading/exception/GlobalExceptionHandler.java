@@ -92,4 +92,66 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(response);
     }
+
+    @ExceptionHandler(PaymentOrderNotFoundException.class)
+    public ResponseEntity<String> handlePaymentOrderNotFound(
+            PaymentOrderNotFoundException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentOwnershipException.class)
+    public ResponseEntity<String> handlePaymentOwnership(
+            PaymentOwnershipException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentVerificationException.class)
+    public ResponseEntity<String> handlePaymentVerification(
+            PaymentVerificationException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPaymentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPayment(
+            InvalidPaymentException ex) {
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex) {
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+    }
+
+    private ResponseEntity<ErrorResponse> buildResponse(
+            HttpStatus status,
+            String message) {
+
+        ErrorResponse response = ErrorResponse.builder()
+                .status(status.value())
+                .message(message)
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity
+                .status(status)
+                .body(response);
+    }
 }

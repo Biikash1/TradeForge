@@ -37,7 +37,7 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> register(
-           @Valid @RequestBody RegisterRequest request) throws Exception {
+           @Valid @RequestBody RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException(
@@ -75,7 +75,7 @@ public class AuthController {
 
     @PostMapping("/signin")
     public ResponseEntity<AuthResponse> login(
-           @Valid @RequestBody AuthRequest request) throws MessagingException {
+           @Valid @RequestBody AuthRequest request)  {
 
 
         Authentication authentication = authenticate(

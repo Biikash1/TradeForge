@@ -3,9 +3,10 @@ package com.cryptotrading.service;
 import com.cryptotrading.domain.PaymentMethod;
 import com.cryptotrading.domain.PaymentOrderStatus;
 import com.cryptotrading.dto.PaymentResponse;
-import com.cryptotrading.exception.ResourceNotFoundException;
+import com.cryptotrading.exception.*;
 import com.cryptotrading.model.PaymentOrder;
 import com.cryptotrading.model.User;
+import com.cryptotrading.model.Wallet;
 import com.cryptotrading.repository.PaymentOrderRepository;
 import com.razorpay.Payment;
 import com.razorpay.PaymentLink;
@@ -31,6 +32,7 @@ import java.math.RoundingMode;
 public class PaymentServiceImpl implements PaymentService{
 
      private final PaymentOrderRepository paymentOrderRepository;
+     private final WalletService walletService;
 
     @Value("${razorpay.key.id}")
     private String razorpayKeyId;
@@ -60,8 +62,12 @@ public class PaymentServiceImpl implements PaymentService{
                                     PaymentMethod paymentMethod) {
         validateAmount(amount);
 
+        if (user == null) {
+            throw new InvalidPaymentException("User is required");
+        }
+
         if (paymentMethod == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Payment method is required"
             );
         }
@@ -82,7 +88,7 @@ public class PaymentServiceImpl implements PaymentService{
 
         return paymentOrderRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
+                        new PaymentOrderNotFoundException(
                                 "Payment order not found: " + id
                         )
                 );
@@ -91,16 +97,16 @@ public class PaymentServiceImpl implements PaymentService{
     @Override
     @Transactional
     public boolean processRazorpayPayment(PaymentOrder paymentOrder,
-                                       String paymentId) throws RazorpayException {
+                                       String paymentId) {
 
         if (paymentOrder == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Payment order cannot be null"
             );
         }
 
         if (paymentId == null || paymentId.isBlank()) {
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Payment ID is required"
             );
         }
@@ -114,58 +120,69 @@ public class PaymentServiceImpl implements PaymentService{
         }
 
         if (paymentOrder.getPaymentMethod() != PaymentMethod.RAZORPAY) {
-            throw new IllegalStateException(
+            throw new InvalidPaymentException(
                     "Payment order is not a Razorpay order"
             );
         }
 
-        RazorpayClient razorpayClient =
-                new RazorpayClient(
-                        razorpayKeyId,
-                        razorpayKeySecret
+        try {
+
+            RazorpayClient razorpayClient =
+                    new RazorpayClient(
+                            razorpayKeyId,
+                            razorpayKeySecret
+                    );
+
+            Payment payment =
+                    razorpayClient.payments.fetch(paymentId);
+
+            String providerStatus = payment.get("status");
+            Integer providerAmount = payment.get("amount");
+            String providerCurrency = payment.get("currency");
+
+            long expectedAmountInPaise =
+                    paymentOrder.getAmount()
+                            .movePointRight(2)
+                            .longValueExact();
+
+            // Verify amount
+            if (providerAmount == null
+                    || providerAmount.longValue()
+                    != expectedAmountInPaise) {
+
+                markPaymentFailed(paymentOrder, paymentId);
+
+                log.warn(
+                        "Razorpay amount mismatch. orderId={}, expected={}, actual={}",
+                        paymentOrder.getId(),
+                        expectedAmountInPaise,
+                        providerAmount
                 );
 
-        Payment payment =
-                razorpayClient.payments.fetch(paymentId);
+                throw new PaymentVerificationException(
+                        "Razorpay payment amount verification failed"
+                );
+            }
 
-        String providerStatus = payment.get("status");
-        Integer providerAmount = payment.get("amount");
-        String providerCurrency = payment.get("currency");
+            // Verify currency
+            if (!"INR".equalsIgnoreCase(providerCurrency)) {
 
-        long expectedAmountInPaise =
-                paymentOrder.getAmount()
-                        .movePointRight(2)
-                        .longValueExact();
+                markPaymentFailed(paymentOrder, paymentId);
 
-        if (providerAmount == null
-                || providerAmount.longValue() != expectedAmountInPaise) {
+                throw new PaymentVerificationException(
+                        "Razorpay payment currency verification failed"
+                );
+            }
 
-            markPaymentFailed(paymentOrder, paymentId);
+            // Verify payment status
+            if (!"captured".equalsIgnoreCase(providerStatus)) {
 
-            log.warn(
-                    "Razorpay amount mismatch. orderId={}, expected={}, actual={}",
-                    paymentOrder.getId(),
-                    expectedAmountInPaise,
-                    providerAmount
-            );
+                markPaymentFailed(paymentOrder, paymentId);
 
-            return false;
-        }
-
-        if (!"INR".equalsIgnoreCase(providerCurrency)) {
-
-            markPaymentFailed(paymentOrder, paymentId);
-
-            log.warn(
-                    "Razorpay currency mismatch. orderId={}, currency={}",
-                    paymentOrder.getId(),
-                    providerCurrency
-            );
-
-            return false;
-        }
-
-        if ("captured".equalsIgnoreCase(providerStatus)) {
+                throw new PaymentVerificationException(
+                        "Razorpay payment was not captured"
+                );
+            }
 
             paymentOrder.setStatus(
                     PaymentOrderStatus.SUCCESS
@@ -184,31 +201,33 @@ public class PaymentServiceImpl implements PaymentService{
             );
 
             return true;
+        } catch (RazorpayException e) {
+
+            log.error(
+                    "Razorpay verification failed. orderId={}, paymentId={}",
+                    paymentOrder.getId(),
+                    paymentId,
+                    e
+            );
+
+            throw new PaymentVerificationException(
+                    "Unable to verify Razorpay payment",
+                    e
+            );
         }
-
-        markPaymentFailed(paymentOrder, paymentId);
-
-        log.warn(
-                "Razorpay payment failed. orderId={}, paymentId={}, status={}",
-                paymentOrder.getId(),
-                paymentId,
-                providerStatus
-        );
-
-        return false;
 
     }
 
     @Override
-    public boolean processStripePayment(PaymentOrder paymentOrder, String sessionId) throws StripeException {
+    public boolean processStripePayment(PaymentOrder paymentOrder, String sessionId) {
         if (paymentOrder == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Payment order cannot be null"
             );
         }
 
         if (sessionId == null || sessionId.isBlank()) {
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Stripe session ID is required"
             );
         }
@@ -222,30 +241,83 @@ public class PaymentServiceImpl implements PaymentService{
         }
 
         if (paymentOrder.getPaymentMethod() != PaymentMethod.STRIPE) {
-            throw new IllegalStateException(
+            throw new InvalidPaymentException(
                     "Payment order is not a Stripe order"
             );
         }
 
-        Stripe.apiKey = stripeKeySecret;
+        try {
 
-        Session session = Session.retrieve(sessionId);
+            Stripe.apiKey = stripeKeySecret;
 
-        String paymentStatus = session.getPaymentStatus();
+            Session session =
+                    Session.retrieve(sessionId);
 
-        String orderId =
-                session.getMetadata()
-                        .get("order_id");
+            String orderId =
+                    session.getMetadata() != null
+                            ? session.getMetadata().get("order_id")
+                            : null;
 
-        if (!String.valueOf(paymentOrder.getId())
-                .equals(orderId)) {
+            // Verify internal order
+            if (!String.valueOf(paymentOrder.getId())
+                    .equals(orderId)) {
 
-            throw new IllegalStateException(
-                    "Stripe session does not belong to this payment order"
-            );
-        }
+                throw new PaymentVerificationException(
+                        "Stripe session does not belong to this payment order"
+                );
+            }
 
-        if ("paid".equalsIgnoreCase(paymentStatus)) {
+            // Verify payment amount
+            long expectedAmountInCents =
+                    paymentOrder.getAmount()
+                            .movePointRight(2)
+                            .longValueExact();
+
+            Long stripeAmount =
+                    session.getAmountTotal();
+
+            if (stripeAmount == null
+                    || stripeAmount != expectedAmountInCents) {
+
+                markPaymentFailed(
+                        paymentOrder,
+                        sessionId
+                );
+
+                throw new PaymentVerificationException(
+                        "Stripe payment amount verification failed"
+                );
+            }
+
+            // Verify currency
+            String currency =
+                    session.getCurrency();
+
+            if (!"usd".equalsIgnoreCase(currency)) {
+
+                markPaymentFailed(
+                        paymentOrder,
+                        sessionId
+                );
+
+                throw new PaymentVerificationException(
+                        "Stripe payment currency verification failed"
+                );
+            }
+
+            // Verify payment status
+            if (!"paid".equalsIgnoreCase(
+                    session.getPaymentStatus())) {
+
+                markPaymentFailed(
+                        paymentOrder,
+                        sessionId
+                );
+
+                throw new PaymentVerificationException(
+                        "Stripe payment has not been completed"
+                );
+            }
 
             paymentOrder.setStatus(
                     PaymentOrderStatus.SUCCESS
@@ -264,220 +336,334 @@ public class PaymentServiceImpl implements PaymentService{
             );
 
             return true;
+
+        } catch (StripeException e) {
+
+            log.error(
+                    "Stripe verification failed. orderId={}, sessionId={}",
+                    paymentOrder.getId(),
+                    sessionId,
+                    e
+            );
+
+            throw new PaymentVerificationException(
+                    "Unable to verify Stripe payment",
+                    e
+            );
+        }
+    }
+
+    @Override
+    public PaymentResponse createRazorpayPaymentLink(User user,
+                                                     BigDecimal amount,
+                                                     Long orderId) {
+
+        if (user == null) {
+            throw new InvalidPaymentException("User is required");
         }
 
-        markPaymentFailed(
-                paymentOrder,
-                sessionId
-        );
-
-        return false;
-    }
-
-    @Override
-    public PaymentResponse createRazorpayPaymentLink(User user, BigDecimal amount, Long orderId)
-            throws RazorpayException {
+        if (orderId == null) {
+            throw new InvalidPaymentException("Order ID is required");
+        }
 
         validateAmount(amount);
 
-        long amountInPaise =
-                amount
-                        .movePointRight(2)
-                        .longValueExact();
+        long amountInPaise;
 
-        RazorpayClient razorpayClient =
-                new RazorpayClient(
-                        razorpayKeyId,
-                        razorpayKeySecret
-                );
+        try {
+            amountInPaise = amount
+                    .setScale(2)
+                    .movePointRight(2)
+                    .longValueExact();
+        } catch (ArithmeticException e) {
+            throw new InvalidPaymentException(
+                    "Invalid payment amount"
+            );
+        }
 
-        JSONObject paymentLinkRequest = new JSONObject();
+        try {
+            RazorpayClient razorpayClient =
+                    new RazorpayClient(
+                            razorpayKeyId,
+                            razorpayKeySecret
+                    );
 
-        paymentLinkRequest.put(
-                "amount",
-                amountInPaise
-        );
+            JSONObject request = new JSONObject();
 
-        paymentLinkRequest.put(
-                "currency",
-                "INR"
-        );
+            request.put("amount", amountInPaise);
+            request.put("currency", "INR");
+            request.put(
+                    "reference_id",
+                    String.valueOf(orderId)
+            );
+            request.put(
+                    "description",
+                    "TradeForge wallet top-up"
+            );
 
-        paymentLinkRequest.put(
-                "reference_id",
-                String.valueOf(orderId)
-        );
+            JSONObject customer = new JSONObject();
+            customer.put("name", user.getFullName());
+            customer.put("email", user.getEmail());
 
-        paymentLinkRequest.put(
-                "description",
-                "TradeForge wallet top-up"
-        );
+            request.put("customer", customer);
 
-        JSONObject customer =
-                new JSONObject();
+            JSONObject notify = new JSONObject();
+            notify.put("email", true);
 
-        customer.put(
-                "name",
-                user.getFullName()
-        );
+            request.put("notify", notify);
+            request.put("reminder_enable", true);
+            request.put(
+                    "callback_url",
+                    razorpayCallbackUrl
+            );
+            request.put("callback_method", "get");
 
-        customer.put(
-                "email",
-                user.getEmail()
-        );
+            PaymentLink paymentLink =
+                    razorpayClient.paymentLink.create(request);
 
-        paymentLinkRequest.put(
-                "customer",
-                customer
-        );
+            String paymentLinkId =
+                    paymentLink.get("id");
 
-        JSONObject notify =
-                new JSONObject();
+            String paymentLinkUrl =
+                    paymentLink.get("short_url");
 
-        notify.put(
-                "email",
-                true
-        );
+            log.info(
+                    "Razorpay payment link created. orderId={}, paymentLinkId={}",
+                    orderId,
+                    paymentLinkId
+            );
 
-        paymentLinkRequest.put(
-                "notify",
-                notify
-        );
+            return PaymentResponse.builder()
+                    .paymentId(paymentLinkId)
+                    .paymentUrl(paymentLinkUrl)
+                    .build();
 
-        paymentLinkRequest.put(
-                "reminder_enable",
-                true
-        );
+        } catch (RazorpayException e) {
 
-        paymentLinkRequest.put(
-                "callback_url",
-                razorpayCallbackUrl
-        );
+            log.error(
+                    "Failed to create Razorpay payment link. orderId={}",
+                    orderId,
+                    e
+            );
 
-        paymentLinkRequest.put(
-                "callback_method",
-                "get"
-        );
-
-        PaymentLink paymentLink =
-                razorpayClient.paymentLink
-                        .create(paymentLinkRequest);
-
-        String paymentLinkId =
-                paymentLink.get("id");
-
-        String paymentLinkUrl =
-                paymentLink.get("short_url");
-
-        log.info(
-                "Razorpay payment link created. orderId={}, paymentLinkId={}",
-                orderId,
-                paymentLinkId
-        );
-
-        return PaymentResponse.builder()
-                .paymentId(paymentLinkId)
-                .paymentUrl(paymentLinkUrl)
-                .build();
+            throw new PaymentVerificationException(
+                    "Unable to create Razorpay payment link",
+                    e
+            );
+        }
     }
 
 
     @Override
-    public PaymentResponse createStripePaymentLink(User user, BigDecimal amount, Long orderId) throws StripeException {
+    public PaymentResponse createStripePaymentLink(User user, BigDecimal amount, Long orderId) {
+
+        if (user == null) {
+            throw new InvalidPaymentException("User is required");
+        }
+
+        if (orderId == null) {
+            throw new InvalidPaymentException("Order ID is required");
+        }
+
         validateAmount(amount);
 
-        /*
-         * Stripe secret key.
-         */
-        Stripe.apiKey = stripeKeySecret;
+        long amountInCents;
 
-        long amountInCents =
-                amount
-                        .movePointRight(2)
-                        .longValueExact();
+        try {
+            amountInCents = amount
+                    .setScale(2)
+                    .movePointRight(2)
+                    .longValueExact();
+        } catch (ArithmeticException e) {
+            throw new InvalidPaymentException(
+                    "Invalid payment amount"
+            );
+        }
+        try {
 
-        SessionCreateParams params =
-                SessionCreateParams.builder()
+            // Stripe secret key
+            Stripe.apiKey = stripeKeySecret;
 
-                        .setMode(
-                                SessionCreateParams.Mode.PAYMENT
-                        )
+            SessionCreateParams params =
+                    SessionCreateParams.builder()
+                            .setMode(
+                                    SessionCreateParams.Mode.PAYMENT
+                            )
+                            .setSuccessUrl(
+                                    stripeSuccessUrl
+                                            + "?order_id="
+                                            + orderId
+                            )
+                            .setCancelUrl(
+                                    stripeCancelUrl
+                            )
+                            .addPaymentMethodType(
+                                    SessionCreateParams
+                                            .PaymentMethodType.CARD
+                            )
+                            .addLineItem(
+                                    SessionCreateParams.LineItem
+                                            .builder()
+                                            .setQuantity(1L)
+                                            .setPriceData(
+                                                    SessionCreateParams
+                                                            .LineItem
+                                                            .PriceData
+                                                            .builder()
+                                                            .setCurrency("usd")
+                                                            .setUnitAmount(
+                                                                    amountInCents
+                                                            )
+                                                            .setProductData(
+                                                                    SessionCreateParams
+                                                                            .LineItem
+                                                                            .PriceData
+                                                                            .ProductData
+                                                                            .builder()
+                                                                            .setName(
+                                                                                    "TradeForge Wallet Top Up"
+                                                                            )
+                                                                            .build()
+                                                            )
+                                                            .build()
+                                            )
+                                            .build()
+                            )
+                            .putMetadata(
+                                    "order_id",
+                                    String.valueOf(orderId)
+                            )
+                            .build();
 
-                        .setSuccessUrl(
-                                stripeSuccessUrl
-                                        + "?order_id="
-                                        + orderId
-                        )
+            Session session =
+                    Session.create(params);
 
-                        .setCancelUrl(
-                                stripeCancelUrl
-                        )
+            log.info(
+                    "Stripe checkout session created. orderId={}, sessionId={}",
+                    orderId,
+                    session.getId()
+            );
 
-                        .addPaymentMethodType(
-                                SessionCreateParams
-                                        .PaymentMethodType.CARD
-                        )
+            return PaymentResponse.builder()
+                    .paymentId(session.getId())
+                    .paymentUrl(session.getUrl())
+                    .build();
 
-                        .addLineItem(
-                                SessionCreateParams.LineItem
-                                        .builder()
+        } catch (StripeException e) {
 
-                                        .setQuantity(1L)
+            log.error(
+                    "Failed to create Stripe checkout session. orderId={}",
+                    orderId,
+                    e
+            );
 
-                                        .setPriceData(
-                                                SessionCreateParams
-                                                        .LineItem
-                                                        .PriceData
-                                                        .builder()
+            throw new PaymentVerificationException(
+                    "Unable to create Stripe checkout session",
+                    e
+            );
+        }
+    }
 
-                                                        .setCurrency("usd")
 
-                                                        .setUnitAmount(
-                                                                amountInCents
-                                                        )
+    @Override
+    @Transactional
+    public Wallet processPaymentAndCreditWallet(
+            User user,
+            Long orderId,
+            String paymentId
+    ) {
 
-                                                        .setProductData(
-                                                                SessionCreateParams
-                                                                        .LineItem
-                                                                        .PriceData
-                                                                        .ProductData
-                                                                        .builder()
-                                                                        .setName(
-                                                                                "TradeForge Wallet Top Up"
-                                                                        )
-                                                                        .build()
-                                                        )
+        if (user == null) {
+            throw new InvalidPaymentException(
+                    "User cannot be null"
+            );
+        }
 
-                                                        .build()
-                                        )
+        if (orderId == null) {
+            throw new InvalidPaymentException(
+                    "Order ID is required"
+            );
+        }
 
-                                        .build()
-                        )
+        if (paymentId == null || paymentId.isBlank()) {
+            throw new InvalidPaymentException(
+                    "Payment ID is required"
+            );
+        }
 
-                        /*
-                         * Associate Stripe session with
-                         * our internal payment order.
-                         */
-                        .putMetadata(
-                                "order_id",
-                                String.valueOf(orderId)
-                        )
+        PaymentOrder paymentOrder =
+                paymentOrderRepository.findById(orderId)
+                        .orElseThrow(() ->
+                                new PaymentOrderNotFoundException(
+                                        "Payment order not found"
+                                )
+                        );
 
-                        .build();
+        // Verify ownership
+        if (!paymentOrder.getUser().getId()
+                .equals(user.getId())) {
 
-        Session session =
-                Session.create(params);
+            throw new PaymentOwnershipException(
+                    "Payment order does not belong to the authenticated user"
+            );
+        }
 
-        log.info(
-                "Stripe checkout session created. orderId={}, sessionId={}",
-                orderId,
-                session.getId()
+        // Idempotency check
+        if (paymentOrder.isWalletCredited()) {
+            return walletService.getUserWallet(user);
+        }
+
+        // Verify payment with provider
+        boolean paymentSuccessful;
+
+        if (paymentOrder.getPaymentMethod()
+                == PaymentMethod.RAZORPAY) {
+
+            paymentSuccessful =
+                    processRazorpayPayment(
+                            paymentOrder,
+                            paymentId
+                    );
+
+        } else if (paymentOrder.getPaymentMethod()
+                == PaymentMethod.STRIPE) {
+
+            paymentSuccessful =
+                    processStripePayment(
+                            paymentOrder,
+                            paymentId
+                    );
+
+        } else {
+            throw new InvalidPaymentException(
+                    "Unsupported payment method: "
+                            + paymentOrder.getPaymentMethod()
+            );
+        }
+
+        if (!paymentSuccessful) {
+            throw new PaymentVerificationException(
+                    "Payment verification failed for order: "
+                            + orderId
+            );
+        }
+
+        // Get wallet
+        Wallet wallet =
+                walletService.getUserWallet(user);
+
+        // Credit wallet
+        wallet = walletService.addBalance(
+                wallet,
+                paymentOrder.getAmount()
         );
 
-        return PaymentResponse.builder()
-                .paymentId(session.getId())
-                .paymentUrl(session.getUrl())
-                .build();
+        // Mark payment as credited
+        paymentOrder.setWalletCredited(true);
+
+        paymentOrderRepository.save(paymentOrder);
+
+        return wallet;
     }
 
     private void validateAmount(BigDecimal amount) {
@@ -485,13 +671,13 @@ public class PaymentServiceImpl implements PaymentService{
         if (amount == null
                 || amount.compareTo(BigDecimal.ZERO) <= 0) {
 
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Payment amount must be greater than zero"
             );
         }
 
         if (amount.scale() > 2) {
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Payment amount cannot have more than 2 decimal places"
             );
         }

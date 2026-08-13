@@ -5,11 +5,11 @@ import com.cryptotrading.model.User;
 
 public interface UserService {
 
-    public User findUserProfileByJwt(String jwt);
-    public User findUserByEmail(String email);
-    public User findUserById(Long userId) throws Exception;
+     User findUserProfileByJwt(String jwt);
+     User findUserByEmail(String email);
+     User findUserById(Long userId) throws Exception;
 
-    public User enableTwoFactorAuthentication(
+     User enableTwoFactorAuthentication(
             VerificationType verificationType,
             String sendTo,
             User user

@@ -2,11 +2,11 @@ package com.cryptotrading.controller;
 
 import com.cryptotrading.domain.PaymentMethod;
 import com.cryptotrading.dto.PaymentResponse;
+import com.cryptotrading.exception.InvalidPaymentException;
 import com.cryptotrading.model.PaymentOrder;
 import com.cryptotrading.model.User;
 import com.cryptotrading.service.PaymentService;
 import com.cryptotrading.service.UserService;
-import com.stripe.exception.StripeException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +27,7 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> paymentHandler(
             @PathVariable PaymentMethod paymentMethod,
             @PathVariable BigDecimal amount,
-            @RequestHeader("Authorization") String jwt) throws Exception {
+            @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
 
@@ -61,7 +61,7 @@ public class PaymentController {
                     );
 
         } else {
-            throw new IllegalArgumentException(
+            throw new InvalidPaymentException(
                     "Unsupported payment method: " + paymentMethod
             );
         }

@@ -8,8 +8,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Table(name = "payment_orders")
@@ -32,7 +35,7 @@ public class PaymentOrder {
     private PaymentOrderStatus status = PaymentOrderStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private PaymentMethod paymentMethod;
 
 
@@ -43,6 +46,9 @@ public class PaymentOrder {
     )
     private String providerPaymentId;
 
+    @Version
+    private Long version;
+
     @Column(
             name = "payment_url",
             length = 500
@@ -50,7 +56,19 @@ public class PaymentOrder {
     @JsonProperty("payment_url")
     private String paymentUrl;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean walletCredited = false;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private Instant updatedAt;
 }

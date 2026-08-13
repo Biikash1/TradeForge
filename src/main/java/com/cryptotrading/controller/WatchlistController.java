@@ -45,7 +45,7 @@ public class WatchlistController {
     @GetMapping("/coin/{coinId}")
     public ResponseEntity<WatchlistResponse> toggleCoin(
             @RequestHeader("Authorization") String jwt,
-            @PathVariable String coinId) throws Exception {
+            @PathVariable String coinId)  {
 
         User user = userService.findUserProfileByJwt(jwt);
         Coin coin = coinService.findById(coinId);

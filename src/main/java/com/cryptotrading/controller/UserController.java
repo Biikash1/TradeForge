@@ -39,8 +39,8 @@ public class UserController {
     @PostMapping("/verification/{verificationType}/send-otp")
     public ResponseEntity<ApiResponse> sendVerificationOtp(
             @RequestHeader("Authorization") String jwt,
-            @PathVariable VerificationType verificationType) throws Exception
-    {
+            @PathVariable VerificationType verificationType) {
+
         User user = userService.findUserProfileByJwt(jwt);
 
         VerificationPurpose purpose =
@@ -74,8 +74,7 @@ public class UserController {
     @PostMapping("/enable-two-factor/send-otp")
     public ResponseEntity<ApiResponse> sendTwoFactorOtp(
             @RequestHeader("Authorization") String jwt,
-            @RequestParam VerificationType verificationType
-    ) throws MessagingException {
+            @RequestParam VerificationType verificationType) {
 
         User user =
                 userService.findUserProfileByJwt(jwt);
@@ -145,7 +144,7 @@ public class UserController {
 
     @PostMapping("/reset-password/send-otp")
     public ResponseEntity<AuthResponse> sendForgetPasswordOtp(
-           @Valid @RequestBody ForgetPasswordTokenRequest request) throws Exception {
+           @Valid @RequestBody ForgetPasswordTokenRequest request) {
 
         User user = userService.findUserByEmail(
                 request.getSendTo()
@@ -197,7 +196,7 @@ public class UserController {
     @PatchMapping("/reset-password/verify-otp")
     public ResponseEntity<ApiResponse> VerifyResetPassword(
             @RequestParam Long id,
-            @Valid @RequestBody ResetPasswordRequest request) throws Exception {
+            @Valid @RequestBody ResetPasswordRequest request) {
 
 
         VerificationCode verificationCode =
