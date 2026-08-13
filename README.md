@@ -343,39 +343,78 @@ multiple payment providers while maintaining a centralized internal
 - **RAZORPAY**
 - **STRIPE**
 
-### Payment Flow
+## 💳 Payment Flow
 
 ```mermaid
 flowchart TD
-    A[User Initiates Wallet Top-Up] --> B[Create PaymentOrder]
-    B --> C{Payment Method}
 
-    C -->|RAZORPAY| D[Razorpay Payment Link]
-    C -->|STRIPE| E[Stripe Checkout Session]
+    A["USER"] --> B["PaymentController"]
 
-    D --> F[Razorpay Payment Verification]
-    E --> G[Stripe Webhook / Payment Verification]
+    B --> C["createOrder()"]
 
-    F --> H[Validate Payment]
+    C --> D["PaymentOrder<br/>PENDING / walletCredited = false"]
+
+    D --> E{"Payment Method"}
+
+    E -->|RAZORPAY| F["Razorpay Payment Link"]
+    E -->|STRIPE| G["Stripe Checkout Session"]
+
+    F --> H["User Completes Payment"]
     G --> H
 
-    H --> I{Validation Checks}
+    H --> I["POST /api/wallet/deposit"]
 
-    I --> I1[Verify Amount]
-    I --> I2[Verify Currency]
-    I --> I3[Verify Order ID]
-    I --> I4[Verify Payment Status]
-    I --> I5[Idempotency Check]
+    I --> J["PaymentService<br/>processPaymentAndCreditWallet()"]
 
-    I1 --> J{Payment Valid?}
-    I2 --> J
-    I3 --> J
-    I4 --> J
-    I5 --> J
+    J --> K["Find PaymentOrder"]
 
-    J -->|Yes| K[Mark Payment SUCCESS]
-    J -->|No| L[Mark Payment FAILED]
+    K --> L{"Order Exists?"}
 
-    K --> M[Credit User Wallet]
-    L --> N[Payment Failed Response]
+    L -->|NO| M["PaymentOrderNotFoundException"]
+    L -->|YES| N["Ownership Check"]
+
+    N --> O{"Correct User?"}
+
+    O -->|NO| P["PaymentOwnershipException"]
+    O -->|YES| Q["Idempotency Check"]
+
+    Q --> R{"walletCredited == true?"}
+
+    R -->|YES| S["Return Existing Wallet<br/>No Duplicate Credit"]
+    R -->|NO| T["Provider Verification"]
+
+    T --> U{"Payment Method"}
+
+    U -->|RAZORPAY| V["Razorpay Verification"]
+    U -->|STRIPE| W["Stripe Verification"]
+
+    V --> V1["Verify Amount"]
+    V1 --> V2["Verify Currency"]
+    V2 --> V3["Verify Payment Status"]
+
+    W --> W1["Verify Amount"]
+    W1 --> W2["Verify Currency"]
+    W2 --> W3["Verify Order ID"]
+    W3 --> W4["Verify Payment Status"]
+
+    V3 --> X{"Payment Valid?"}
+    W4 --> X
+
+    X -->|NO| Y["PaymentVerificationException<br/>Payment FAILED"]
+
+    X -->|YES| Z["Payment SUCCESS"]
+
+    Z --> AA["walletService.addBalance()"]
+
+    AA --> AB["walletCredited = true"]
+
+    AB --> AC["Save PaymentOrder"]
+
+    AC --> AD["WalletResponse"]
+
+    M --> AE["Global Exception Handler"]
+    P --> AE
+    Y --> AE
+
+    AE --> AF["Standard API Error Response"]
 ```
