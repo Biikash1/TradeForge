@@ -343,78 +343,92 @@ multiple payment providers while maintaining a centralized internal
 - **RAZORPAY**
 - **STRIPE**
 
-## 💳 Payment Flow
+## Payment Flow
+   
+- **Payment Request → PaymentOrder → Provider Verification → Validation → Idempotency → Wallet Credit → Response**
 
 ```mermaid
 flowchart TD
 
-    A["USER"] --> B["PaymentController"]
+    A["PAYMENT REQUEST"]
+    B["PaymentOrder<br/>Status: PENDING<br/>walletCredited: false"]
+    C{"PAYMENT METHOD"}
 
-    B --> C["createOrder()"]
+    A --> B
+    B --> C
 
-    C --> D["PaymentOrder<br/>PENDING / walletCredited = false"]
+    C -->|RAZORPAY| D["Razorpay Payment Link"]
+    C -->|STRIPE| E["Stripe Checkout Session"]
 
-    D --> E{"Payment Method"}
+    D --> F["Provider Verification"]
+    E --> F
 
-    E -->|RAZORPAY| F["Razorpay Payment Link"]
-    E -->|STRIPE| G["Stripe Checkout Session"]
+    F --> G["PaymentService<br/>processPaymentAndCreditWallet()"]
 
-    F --> H["User Completes Payment"]
-    G --> H
+    G --> H["PaymentOrder Validation"]
 
-    H --> I["POST /api/wallet/deposit"]
+    H --> I{"ORDER EXISTS?"}
 
-    I --> J["PaymentService<br/>processPaymentAndCreditWallet()"]
+    I -->|NO| J["PaymentOrderNotFoundException"]
+    I -->|YES| K["Ownership Check"]
 
-    J --> K["Find PaymentOrder"]
+    K --> L{"USER OWNS ORDER?"}
 
-    K --> L{"Order Exists?"}
+    L -->|NO| M["PaymentOwnershipException"]
+    L -->|YES| N["Idempotency Check"]
 
-    L -->|NO| M["PaymentOrderNotFoundException"]
-    L -->|YES| N["Ownership Check"]
+    N --> O{"WALLET ALREADY CREDITED?"}
 
-    N --> O{"Correct User?"}
+    O -->|YES| P["Return Existing Wallet<br/>No Duplicate Credit"]
+    O -->|NO| Q["Provider Verification"]
 
-    O -->|NO| P["PaymentOwnershipException"]
-    O -->|YES| Q["Idempotency Check"]
+    Q --> R{"PAYMENT METHOD"}
 
-    Q --> R{"walletCredited == true?"}
+    R -->|RAZORPAY| S["Razorpay Verification"]
+    R -->|STRIPE| T["Stripe Verification"]
 
-    R -->|YES| S["Return Existing Wallet<br/>No Duplicate Credit"]
-    R -->|NO| T["Provider Verification"]
+    S --> S1["Verify Amount"]
+    S1 --> S2["Verify Currency"]
+    S2 --> S3["Verify Payment Status"]
 
-    T --> U{"Payment Method"}
+    T --> T1["Verify Amount"]
+    T1 --> T2["Verify Currency"]
+    T2 --> T3["Verify Order ID"]
+    T3 --> T4["Verify Payment Status"]
 
-    U -->|RAZORPAY| V["Razorpay Verification"]
-    U -->|STRIPE| W["Stripe Verification"]
+    S3 --> U{"PAYMENT VALID?"}
+    T4 --> U
 
-    V --> V1["Verify Amount"]
-    V1 --> V2["Verify Currency"]
-    V2 --> V3["Verify Payment Status"]
+    U -->|NO| V["Payment FAILED<br/>PaymentVerificationException"]
+    U -->|YES| W["Payment SUCCESS"]
 
-    W --> W1["Verify Amount"]
-    W1 --> W2["Verify Currency"]
-    W2 --> W3["Verify Order ID"]
-    W3 --> W4["Verify Payment Status"]
+    W --> X["Credit Wallet<br/>walletService.addBalance()"]
+    X --> Y["Mark Wallet Credited<br/>walletCredited = true"]
+    Y --> Z["Save PaymentOrder"]
+    Z --> AA["WalletResponse"]
 
-    V3 --> X{"Payment Valid?"}
-    W4 --> X
+    J --> AB["Global Exception Handler"]
+    M --> AB
+    V --> AB
 
-    X -->|NO| Y["PaymentVerificationException<br/>Payment FAILED"]
+    AB --> AC["Standard API Error Response"]
 
-    X -->|YES| Z["Payment SUCCESS"]
 
-    Z --> AA["walletService.addBalance()"]
+%% Styling
 
-    AA --> AB["walletCredited = true"]
+    classDef start fill:#1f2937,stroke:#60a5fa,stroke-width:2px,color:#fff;
+    classDef process fill:#111827,stroke:#9ca3af,stroke-width:1.5px,color:#fff;
+    classDef decision fill:#1f2937,stroke:#fbbf24,stroke-width:2px,color:#fff;
+    classDef success fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff;
+    classDef error fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fff;
 
-    AB --> AC["Save PaymentOrder"]
+    class A start;
 
-    AC --> AD["WalletResponse"]
+    class B,D,E,F,G,H,K,N,Q,S,T,S1,S2,S3,T1,T2,T3,T4,X,Y,Z,AA,P process;
 
-    M --> AE["Global Exception Handler"]
-    P --> AE
-    Y --> AE
+    class C,I,L,O,R,U decision;
 
-    AE --> AF["Standard API Error Response"]
+    class W success;
+
+    class J,M,V,AB,AC error;
 ```
