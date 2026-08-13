@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+
 @RestController
 @RequestMapping("/api/payments")
 @RequiredArgsConstructor
@@ -24,20 +26,47 @@ public class PaymentController {
     @PostMapping("/{paymentMethod}/amount/{amount}")
     public ResponseEntity<PaymentResponse> paymentHandler(
             @PathVariable PaymentMethod paymentMethod,
-            @PathVariable Long amount,
-            @RequestHeader("Authorization") String jwt) throws StripeException {
+            @PathVariable BigDecimal amount,
+            @RequestHeader("Authorization") String jwt) throws Exception {
 
         User user = userService.findUserProfileByJwt(jwt);
 
+        // Create internal payment order first.
+         // Status = PENDING
+
+        PaymentOrder order = paymentService.createOrder(
+                user,
+                amount,
+                paymentMethod
+        );
+
+        Long orderId = order.getId();
+
         PaymentResponse paymentResponse;
 
-        PaymentOrder order = paymentService.createOrder(user, amount, paymentMethod);
+        if (paymentMethod == PaymentMethod.RAZORPAY) {
+            paymentResponse =
+                    paymentService.createRazorpayPaymentLink(
+                            user,
+                            amount,
+                            orderId
+                    );
 
-        if(paymentMethod.equals(PaymentMethod.RAZORPAY)) {
-            paymentResponse = paymentService.createRazorpayPaymentLink(user, amount);
-        }else {
-            paymentResponse = paymentService.createStripePaymentLink(user, amount, order.getId());
+        } else if (paymentMethod == PaymentMethod.STRIPE) {
+            paymentResponse =
+                    paymentService.createStripePaymentLink(
+                            user,
+                            amount,
+                            orderId
+                    );
+
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported payment method: " + paymentMethod
+            );
         }
-        return new ResponseEntity<>(paymentResponse, HttpStatus.CREATED);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(paymentResponse);
     }
+
 }

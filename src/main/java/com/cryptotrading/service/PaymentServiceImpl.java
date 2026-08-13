@@ -3,6 +3,7 @@ package com.cryptotrading.service;
 import com.cryptotrading.domain.PaymentMethod;
 import com.cryptotrading.domain.PaymentOrderStatus;
 import com.cryptotrading.dto.PaymentResponse;
+import com.cryptotrading.exception.ResourceNotFoundException;
 import com.cryptotrading.model.PaymentOrder;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.PaymentOrderRepository;
@@ -15,13 +16,18 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.expression.ExpressionException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentServiceImpl implements PaymentService{
 
      private final PaymentOrderRepository paymentOrderRepository;
@@ -32,131 +38,479 @@ public class PaymentServiceImpl implements PaymentService{
     @Value("${razorpay.key.secret}")
     private String razorpayKeySecret;
 
+    @Value("${razorpay.callback.url}")
+    private String razorpayCallbackUrl;
+
     @Value("${stripe.key.id}")
     private String stripeKeyId;
 
     @Value("${stripe.key.secret}")
     private String stripeKeySecret;
 
+    @Value("${stripe.success.url}")
+    private String stripeSuccessUrl;
+
+    @Value("${stripe.cancel.url}")
+    private String stripeCancelUrl;
+
     @Override
-    public PaymentOrder createOrder(User user, Long amount, PaymentMethod paymentMethod) {
-       PaymentOrder paymentOrder = new PaymentOrder();
-       paymentOrder.setUser(user);
-       paymentOrder.setAmount(amount);
-       paymentOrder.setPaymentMethod(paymentMethod);
-       return paymentOrderRepository.save(paymentOrder);
+    @Transactional
+    public PaymentOrder createOrder(User user,
+                                    BigDecimal amount,
+                                    PaymentMethod paymentMethod) {
+        validateAmount(amount);
+
+        if (paymentMethod == null) {
+            throw new IllegalArgumentException(
+                    "Payment method is required"
+            );
+        }
+
+        PaymentOrder paymentOrder = PaymentOrder.builder()
+                .user(user)
+                .amount(amount.setScale(2, RoundingMode.HALF_UP))
+                .paymentMethod(paymentMethod)
+                .status(PaymentOrderStatus.PENDING)
+                .build();
+
+        return paymentOrderRepository.save(paymentOrder);
     }
 
     @Override
-    public PaymentOrder getPaymentOrderById(Long id) throws Exception {
+    @Transactional(readOnly = true)
+    public PaymentOrder getPaymentOrderById(Long id){
+
         return paymentOrderRepository.findById(id)
                 .orElseThrow(() ->
-                        new Exception("Payment order not found")
-                        );
+                        new ResourceNotFoundException(
+                                "Payment order not found: " + id
+                        )
+                );
     }
 
     @Override
-    public Boolean ProccedPaymentOrder(PaymentOrder paymentOrder, String paymentId) throws RazorpayException {
-       if(paymentOrder.getStatus().equals(PaymentOrderStatus.PENDING)) {
-           if(paymentOrder.getPaymentMethod().equals(PaymentMethod.RAZORPAY)) {
-               RazorpayClient razorpay = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
-               Payment payment = razorpay.payments.fetch(paymentId);
+    @Transactional
+    public boolean processRazorpayPayment(PaymentOrder paymentOrder,
+                                       String paymentId) throws RazorpayException {
 
-               Integer amount = payment.get("amount");
-               String status = payment.get("status");
+        if (paymentOrder == null) {
+            throw new IllegalArgumentException(
+                    "Payment order cannot be null"
+            );
+        }
 
-               if(status.equals("captured")) {
-                   paymentOrder.setStatus(PaymentOrderStatus.SUCCESS);
-                   return true;
-               }
-               paymentOrder.setStatus(PaymentOrderStatus.FAILED);
-               paymentOrderRepository.save(paymentOrder);
-               return false;
-           }
+        if (paymentId == null || paymentId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Payment ID is required"
+            );
+        }
 
-           paymentOrder.setStatus(PaymentOrderStatus.SUCCESS);
-           paymentOrderRepository.save(paymentOrder);
-           return true;
-       }
-       return false;
+        if (paymentOrder.getStatus() == PaymentOrderStatus.SUCCESS) {
+            return true;
+        }
+
+        if (paymentOrder.getStatus() != PaymentOrderStatus.PENDING) {
+            return false;
+        }
+
+        if (paymentOrder.getPaymentMethod() != PaymentMethod.RAZORPAY) {
+            throw new IllegalStateException(
+                    "Payment order is not a Razorpay order"
+            );
+        }
+
+        RazorpayClient razorpayClient =
+                new RazorpayClient(
+                        razorpayKeyId,
+                        razorpayKeySecret
+                );
+
+        Payment payment =
+                razorpayClient.payments.fetch(paymentId);
+
+        String providerStatus = payment.get("status");
+        Integer providerAmount = payment.get("amount");
+        String providerCurrency = payment.get("currency");
+
+        long expectedAmountInPaise =
+                paymentOrder.getAmount()
+                        .movePointRight(2)
+                        .longValueExact();
+
+        if (providerAmount == null
+                || providerAmount.longValue() != expectedAmountInPaise) {
+
+            markPaymentFailed(paymentOrder, paymentId);
+
+            log.warn(
+                    "Razorpay amount mismatch. orderId={}, expected={}, actual={}",
+                    paymentOrder.getId(),
+                    expectedAmountInPaise,
+                    providerAmount
+            );
+
+            return false;
+        }
+
+        if (!"INR".equalsIgnoreCase(providerCurrency)) {
+
+            markPaymentFailed(paymentOrder, paymentId);
+
+            log.warn(
+                    "Razorpay currency mismatch. orderId={}, currency={}",
+                    paymentOrder.getId(),
+                    providerCurrency
+            );
+
+            return false;
+        }
+
+        if ("captured".equalsIgnoreCase(providerStatus)) {
+
+            paymentOrder.setStatus(
+                    PaymentOrderStatus.SUCCESS
+            );
+
+            paymentOrder.setProviderPaymentId(
+                    paymentId
+            );
+
+            paymentOrderRepository.save(paymentOrder);
+
+            log.info(
+                    "Razorpay payment successful. orderId={}, paymentId={}",
+                    paymentOrder.getId(),
+                    paymentId
+            );
+
+            return true;
+        }
+
+        markPaymentFailed(paymentOrder, paymentId);
+
+        log.warn(
+                "Razorpay payment failed. orderId={}, paymentId={}, status={}",
+                paymentOrder.getId(),
+                paymentId,
+                providerStatus
+        );
+
+        return false;
+
     }
 
     @Override
-    public PaymentResponse createRazorpayPaymentLink(User user, Long amount) {
+    public boolean processStripePayment(PaymentOrder paymentOrder, String sessionId) throws StripeException {
+        if (paymentOrder == null) {
+            throw new IllegalArgumentException(
+                    "Payment order cannot be null"
+            );
+        }
 
-         Long Amount =  amount * 100;
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Stripe session ID is required"
+            );
+        }
 
-         try {
-             //Instantiate a Razorpay client with your key ID and SECRET
-             RazorpayClient razorpay = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+        if (paymentOrder.getStatus() == PaymentOrderStatus.SUCCESS) {
+            return true;
+        }
 
-             //Create a JSON object with th payment link request parameter
-             JSONObject paymentLinkRequest = new JSONObject();
-             paymentLinkRequest.put("amount", amount);
-             paymentLinkRequest.put("currency", "INR");
+        if (paymentOrder.getStatus() != PaymentOrderStatus.PENDING) {
+            return false;
+        }
 
-             //Create a JSON object with the customer details
-             JSONObject customer = new JSONObject();
-             customer.put("name", user.getFullName());
+        if (paymentOrder.getPaymentMethod() != PaymentMethod.STRIPE) {
+            throw new IllegalStateException(
+                    "Payment order is not a Stripe order"
+            );
+        }
 
-             customer.put("email", user.getEmail());
-             paymentLinkRequest.put("customer", customer);
+        Stripe.apiKey = stripeKeySecret;
 
-             //Create a JSON object with the notification settings
-             JSONObject notify = new JSONObject();
-             notify.put("email", true);
-             paymentLinkRequest.put("notify", notify);
+        Session session = Session.retrieve(sessionId);
 
-             //set the remainder setting
-             paymentLinkRequest.put("remainder_enable", true);
+        String paymentStatus = session.getPaymentStatus();
 
-             //set the callback URL and method
-             paymentLinkRequest.put("callback_url", "http://localhost:5173/wallet");
-             paymentLinkRequest.put("callback_method", "get");
+        String orderId =
+                session.getMetadata()
+                        .get("order_id");
 
-             //Create the payment link using the paymentLink.create() method
-             PaymentLink paymentLink = razorpay.paymentLink.create(paymentLinkRequest);
+        if (!String.valueOf(paymentOrder.getId())
+                .equals(orderId)) {
 
-             String paymentLinkId = paymentLink.get("id");
-             String paymentLinkUrl = paymentLink.get("short_url");
+            throw new IllegalStateException(
+                    "Stripe session does not belong to this payment order"
+            );
+        }
 
-             PaymentResponse response = new PaymentResponse();
-             response.setPayment_url(paymentLinkUrl);
-             return response;
-         } catch (RazorpayException e) {
-             System.out.println("Error creating payment link: " +e.getMessage());
-             throw new RuntimeException(e.getMessage());
-         }
+        if ("paid".equalsIgnoreCase(paymentStatus)) {
+
+            paymentOrder.setStatus(
+                    PaymentOrderStatus.SUCCESS
+            );
+
+            paymentOrder.setProviderPaymentId(
+                    sessionId
+            );
+
+            paymentOrderRepository.save(paymentOrder);
+
+            log.info(
+                    "Stripe payment successful. orderId={}, sessionId={}",
+                    paymentOrder.getId(),
+                    sessionId
+            );
+
+            return true;
+        }
+
+        markPaymentFailed(
+                paymentOrder,
+                sessionId
+        );
+
+        return false;
     }
 
     @Override
-    public PaymentResponse createStripePaymentLink(User user, Long amount, Long orderId) throws StripeException {
-        Stripe.stripekeyId = stripeKeySecret;
+    public PaymentResponse createRazorpayPaymentLink(User user, BigDecimal amount, Long orderId)
+            throws RazorpayException {
 
-        SessionCreateParams params = SessionCreateParams.builder()
-                .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
-                .setMode(SessionCreateParams.Mode.PAYMENT)
-                .setSuccessUrl("http://localhost:5713/wallet?order_id="+orderId)
-                .setCancelUrl("http://localhost:5713/payment/cancel")
-                .addLineItem(SessionCreateParams.LineItem.builder()
-                        .setQuantity(1L)
-                        .setPriceData(
-                                SessionCreateParams.LineItem.PriceData.builder()
-                                        .setCurrency("usd")
-                                        .setUnitAmount(amount*100)
-                                        .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                                .setName("Top up wallet")
-                                                .build()
-                                        ).build()
-                        ).build()
+        validateAmount(amount);
 
-                ).build();
+        long amountInPaise =
+                amount
+                        .movePointRight(2)
+                        .longValueExact();
 
-        Session session = Session.create(params);
-        System.out.println("Session ______" +session);
+        RazorpayClient razorpayClient =
+                new RazorpayClient(
+                        razorpayKeyId,
+                        razorpayKeySecret
+                );
 
-        PaymentResponse response = new PaymentResponse();
-        response.setPayment_url(session.getUrl());
-        return response;
+        JSONObject paymentLinkRequest = new JSONObject();
+
+        paymentLinkRequest.put(
+                "amount",
+                amountInPaise
+        );
+
+        paymentLinkRequest.put(
+                "currency",
+                "INR"
+        );
+
+        paymentLinkRequest.put(
+                "reference_id",
+                String.valueOf(orderId)
+        );
+
+        paymentLinkRequest.put(
+                "description",
+                "TradeForge wallet top-up"
+        );
+
+        JSONObject customer =
+                new JSONObject();
+
+        customer.put(
+                "name",
+                user.getFullName()
+        );
+
+        customer.put(
+                "email",
+                user.getEmail()
+        );
+
+        paymentLinkRequest.put(
+                "customer",
+                customer
+        );
+
+        JSONObject notify =
+                new JSONObject();
+
+        notify.put(
+                "email",
+                true
+        );
+
+        paymentLinkRequest.put(
+                "notify",
+                notify
+        );
+
+        paymentLinkRequest.put(
+                "reminder_enable",
+                true
+        );
+
+        paymentLinkRequest.put(
+                "callback_url",
+                razorpayCallbackUrl
+        );
+
+        paymentLinkRequest.put(
+                "callback_method",
+                "get"
+        );
+
+        PaymentLink paymentLink =
+                razorpayClient.paymentLink
+                        .create(paymentLinkRequest);
+
+        String paymentLinkId =
+                paymentLink.get("id");
+
+        String paymentLinkUrl =
+                paymentLink.get("short_url");
+
+        log.info(
+                "Razorpay payment link created. orderId={}, paymentLinkId={}",
+                orderId,
+                paymentLinkId
+        );
+
+        return PaymentResponse.builder()
+                .paymentId(paymentLinkId)
+                .paymentUrl(paymentLinkUrl)
+                .build();
     }
+
+
+    @Override
+    public PaymentResponse createStripePaymentLink(User user, BigDecimal amount, Long orderId) throws StripeException {
+        validateAmount(amount);
+
+        /*
+         * Stripe secret key.
+         */
+        Stripe.apiKey = stripeKeySecret;
+
+        long amountInCents =
+                amount
+                        .movePointRight(2)
+                        .longValueExact();
+
+        SessionCreateParams params =
+                SessionCreateParams.builder()
+
+                        .setMode(
+                                SessionCreateParams.Mode.PAYMENT
+                        )
+
+                        .setSuccessUrl(
+                                stripeSuccessUrl
+                                        + "?order_id="
+                                        + orderId
+                        )
+
+                        .setCancelUrl(
+                                stripeCancelUrl
+                        )
+
+                        .addPaymentMethodType(
+                                SessionCreateParams
+                                        .PaymentMethodType.CARD
+                        )
+
+                        .addLineItem(
+                                SessionCreateParams.LineItem
+                                        .builder()
+
+                                        .setQuantity(1L)
+
+                                        .setPriceData(
+                                                SessionCreateParams
+                                                        .LineItem
+                                                        .PriceData
+                                                        .builder()
+
+                                                        .setCurrency("usd")
+
+                                                        .setUnitAmount(
+                                                                amountInCents
+                                                        )
+
+                                                        .setProductData(
+                                                                SessionCreateParams
+                                                                        .LineItem
+                                                                        .PriceData
+                                                                        .ProductData
+                                                                        .builder()
+                                                                        .setName(
+                                                                                "TradeForge Wallet Top Up"
+                                                                        )
+                                                                        .build()
+                                                        )
+
+                                                        .build()
+                                        )
+
+                                        .build()
+                        )
+
+                        /*
+                         * Associate Stripe session with
+                         * our internal payment order.
+                         */
+                        .putMetadata(
+                                "order_id",
+                                String.valueOf(orderId)
+                        )
+
+                        .build();
+
+        Session session =
+                Session.create(params);
+
+        log.info(
+                "Stripe checkout session created. orderId={}, sessionId={}",
+                orderId,
+                session.getId()
+        );
+
+        return PaymentResponse.builder()
+                .paymentId(session.getId())
+                .paymentUrl(session.getUrl())
+                .build();
+    }
+
+    private void validateAmount(BigDecimal amount) {
+
+        if (amount == null
+                || amount.compareTo(BigDecimal.ZERO) <= 0) {
+
+            throw new IllegalArgumentException(
+                    "Payment amount must be greater than zero"
+            );
+        }
+
+        if (amount.scale() > 2) {
+            throw new IllegalArgumentException(
+                    "Payment amount cannot have more than 2 decimal places"
+            );
+        }
+    }
+
+    private void markPaymentFailed(
+            PaymentOrder paymentOrder,
+            String paymentId
+    ) {
+
+        paymentOrder.setStatus(
+                PaymentOrderStatus.FAILED
+        );
+
+        paymentOrder.setProviderPaymentId(
+                paymentId
+        );
+
+        paymentOrderRepository.save(paymentOrder);
+    }
+
 }
