@@ -4,9 +4,9 @@
 
 TradeForge enables users to buy, sell, and track cryptocurrencies in real time.
 
-#### Database Design & Tables
+## Database Design & Tables
 
-#### **📋Tables and Relationships**
+### **📋Tables and Relationships**
 
 1. **👤 Users Table**
     - `id` (Primary Key)
