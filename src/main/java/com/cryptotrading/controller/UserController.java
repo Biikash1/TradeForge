@@ -1,18 +1,13 @@
 package com.cryptotrading.controller;
 
-import com.cryptotrading.dto.GeneratedOtp;
+import com.cryptotrading.dto.*;
 import com.cryptotrading.domain.VerificationPurpose;
 import com.cryptotrading.domain.VerificationType;
-import com.cryptotrading.dto.ApiResponse;
-import com.cryptotrading.dto.AuthResponse;
-import com.cryptotrading.dto.ForgetPasswordTokenRequest;
-import com.cryptotrading.dto.ResetPasswordRequest;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.VerificationCode;
 import com.cryptotrading.service.EmailService;
 import com.cryptotrading.service.UserService;
 import com.cryptotrading.service.VerificationCodeService;
-import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -28,11 +23,43 @@ public class UserController {
     private final VerificationCodeService verificationCodeService;
 
     @GetMapping("/profile")
-    public ResponseEntity<User> getUserProfile(
+    public ResponseEntity<UserProfileResponse> getUserProfile(
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
-        return ResponseEntity.ok(user);
+        UserProfileResponse response = UserProfileResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .mobile(user.getMobile())
+                .role(user.getRole())
+                .twoFactorEnabled(
+                        user.getTwoFactorAuth() != null
+                                && user.getTwoFactorAuth().isEnabled()
+                )
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/profile/{userId}")
+    public ResponseEntity<UserProfileResponse> getUserProfileById(
+            @PathVariable Long userId) {
+        User user = userService.findUserById(userId);
+
+        UserProfileResponse response = UserProfileResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .mobile(user.getMobile())
+                .role(user.getRole())
+                .twoFactorEnabled(
+                        user.getTwoFactorAuth() != null
+                                && user.getTwoFactorAuth().isEnabled()
+                )
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 
 

@@ -7,7 +7,7 @@ public interface UserService {
 
      User findUserProfileByJwt(String jwt);
      User findUserByEmail(String email);
-     User findUserById(Long userId) throws Exception;
+     User findUserById(Long userId) ;
 
      User enableTwoFactorAuthentication(
             VerificationType verificationType,

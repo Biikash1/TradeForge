@@ -30,7 +30,6 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-
     @Embedded
     @Builder.Default
     private TwoFactorAuth twoFactorAuth = new TwoFactorAuth();

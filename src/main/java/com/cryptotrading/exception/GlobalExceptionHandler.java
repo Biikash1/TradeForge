@@ -2,6 +2,7 @@ package com.cryptotrading.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -62,6 +63,24 @@ public class GlobalExceptionHandler {
                 HttpStatus.NOT_FOUND,
                 "Payment Order Not Found",
                 ex.getMessage()
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(
+            MethodArgumentNotValidException ex) {
+
+        String message = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> error.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation failed");
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Validation Error",
+                message
         );
     }
 
