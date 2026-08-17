@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import java.math.BigDecimal;
 
 @Data
-@RequiredArgsConstructor
 @NoArgsConstructor
 @Entity
 public class Asset {

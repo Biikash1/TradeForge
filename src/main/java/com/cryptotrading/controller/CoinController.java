@@ -2,10 +2,10 @@ package com.cryptotrading.controller;
 
 import com.cryptotrading.model.Coin;
 import com.cryptotrading.service.CoinService;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 

@@ -3,6 +3,7 @@ package com.cryptotrading.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,9 @@ import org.springframework.util.StringUtils;
 public class EmailService {
 
     private final JavaMailSender javaMailSender;
+
+    @Value("${mail.from}")
+    private String fromEmail;
 
     private static final String OTP_SUBJECT = "TradeForge - Email Verification OTP";
     private static final String OTP_MESSAGE = "Your TradeForge verification code is: %s\n\n"
@@ -28,6 +32,7 @@ public class EmailService {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
 
+            helper.setFrom(fromEmail);
             helper.setTo(email);
             helper.setSubject(OTP_SUBJECT);
             helper.setText(

@@ -1,123 +1,90 @@
 package com.cryptotrading.exception;
 
-import com.cryptotrading.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(CoinApiException.class)
-    public ResponseEntity<Map<String, Object>> handleCoinApiException(
+    public ResponseEntity<ErrorResponse> handleCoinApiException(
             CoinApiException ex) {
 
-        Map<String, Object> response = new HashMap<>();
-
-        response.put("timestamp", Instant.now());
-        response.put("status", HttpStatus.BAD_GATEWAY.value());
-        response.put("error", "Coin API Error");
-        response.put("message", ex.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_GATEWAY)
-                .body(response);
+        return buildResponse(
+                HttpStatus.BAD_GATEWAY,
+                "Coin API Error",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
             IllegalArgumentException ex) {
 
-        Map<String, Object> response = new HashMap<>();
-
-        response.put("timestamp", Instant.now());
-        response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("error", "Bad Request");
-        response.put("message", ex.getMessage());
-
-        return ResponseEntity
-                .badRequest()
-                .body(response);
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                ex.getMessage()
+        );
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGeneralException(
-            Exception ex) {
+    @ExceptionHandler(VerificationCodeNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleVerificationCodeNotFound(
+            VerificationCodeNotFoundException ex) {
 
-        Map<String, Object> response = new HashMap<>();
-
-        response.put("timestamp", Instant.now());
-        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        response.put("error", "Internal Server Error");
-        response.put("message", "Something went wrong");
-
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(response);
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                "Verification Code Not Found",
+                ex.getMessage()
+        );
     }
 
-    @ExceptionHandler(
-            VerificationCodeNotFoundException.class
-    )
-    public ResponseEntity<ApiResponse> handleVerificationCodeNotFound(
-            VerificationCodeNotFoundException exception
-    ) {
+    @ExceptionHandler(InvalidVerificationCodeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidVerificationCode(
+            InvalidVerificationCodeException ex) {
 
-        ApiResponse response = new ApiResponse();
-
-        response.setMessage(exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(response);
-    }
-
-    @ExceptionHandler(
-            InvalidVerificationCodeException.class
-    )
-    public ResponseEntity<ApiResponse> handleInvalidVerificationCode(
-            InvalidVerificationCodeException exception
-    ) {
-
-        ApiResponse response = new ApiResponse();
-
-        response.setMessage(exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(response);
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Invalid Verification Code",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(PaymentOrderNotFoundException.class)
-    public ResponseEntity<String> handlePaymentOrderNotFound(
+    public ResponseEntity<ErrorResponse> handlePaymentOrderNotFound(
             PaymentOrderNotFoundException ex) {
 
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ex.getMessage());
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                "Payment Order Not Found",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(PaymentOwnershipException.class)
-    public ResponseEntity<String> handlePaymentOwnership(
+    public ResponseEntity<ErrorResponse> handlePaymentOwnership(
             PaymentOwnershipException ex) {
 
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(ex.getMessage());
+        return buildResponse(
+                HttpStatus.FORBIDDEN,
+                "Payment Ownership Error",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(PaymentVerificationException.class)
-    public ResponseEntity<String> handlePaymentVerification(
+    public ResponseEntity<ErrorResponse> handlePaymentVerification(
             PaymentVerificationException ex) {
 
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ex.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Payment Verification Failed",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(InvalidPaymentException.class)
@@ -126,26 +93,30 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
+                "Invalid Payment",
                 ex.getMessage()
         );
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(
-            IllegalArgumentException ex) {
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGeneralException(
+            Exception ex) {
 
         return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage()
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                "Something went wrong"
         );
     }
 
     private ResponseEntity<ErrorResponse> buildResponse(
             HttpStatus status,
+            String error,
             String message) {
 
         ErrorResponse response = ErrorResponse.builder()
                 .status(status.value())
+                .error(error)
                 .message(message)
                 .timestamp(Instant.now())
                 .build();

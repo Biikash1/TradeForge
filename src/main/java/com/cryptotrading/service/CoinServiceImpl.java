@@ -3,7 +3,6 @@ package com.cryptotrading.service;
 import com.cryptotrading.exception.CoinApiException;
 import com.cryptotrading.model.Coin;
 import com.cryptotrading.repository.CoinRepository;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -14,9 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 
 import java.math.BigDecimal;
@@ -32,11 +32,18 @@ public class CoinServiceImpl implements CoinService{
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
+    private static final String CURRENCY = "usd";
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int TOP_COINS_LIMIT = 50;
+
     @Value("${coingecko.base-url}")
     private String baseUrl;
 
     @Override
     public List<Coin> getCoinList(int page) {
+
+
+        validatePage(page);
 
         if (page < 1) {
             throw new IllegalArgumentException(
@@ -47,8 +54,8 @@ public class CoinServiceImpl implements CoinService{
         String url = UriComponentsBuilder
                 .fromUriString(baseUrl)
                 .path("/coins/markets")
-                .queryParam("vs_currency", "usd")
-                .queryParam("per_page", 10)
+                .queryParam("vs_currency", CURRENCY)
+                .queryParam("per_page", DEFAULT_PAGE_SIZE)
                 .queryParam("page", page)
                 .toUriString();
 
@@ -61,11 +68,7 @@ public class CoinServiceImpl implements CoinService{
     @Override
     public JsonNode getMarketChart(String coinId, int days)  {
 
-        if (coinId == null || coinId.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Coin ID cannot be empty"
-            );
-        }
+        validateCoinId(coinId);
 
         if (days <= 0) {
             throw new IllegalArgumentException(
@@ -76,7 +79,7 @@ public class CoinServiceImpl implements CoinService{
         String url = UriComponentsBuilder
                 .fromUriString(baseUrl)
                 .path("/coins/{coinId}/market_chart")
-                .queryParam("vs_currency", "usd")
+                .queryParam("vs_currency", CURRENCY)
                 .queryParam("days", days)
                 .buildAndExpand(coinId)
                 .toUriString();
@@ -87,11 +90,7 @@ public class CoinServiceImpl implements CoinService{
     @Override
     public JsonNode getCoinDetails(String coinId) {
 
-        if (coinId == null || coinId.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Coin ID cannot be empty"
-            );
-        }
+        validateCoinId(coinId);
 
         String url = UriComponentsBuilder
                 .fromUriString(baseUrl)
@@ -110,6 +109,9 @@ public class CoinServiceImpl implements CoinService{
 
     @Override
     public Coin findById(String coinId) {
+
+        validateCoinId(coinId);
+
         return coinRepository.findById(coinId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
@@ -142,8 +144,8 @@ public class CoinServiceImpl implements CoinService{
         String url = UriComponentsBuilder
                 .fromUriString(baseUrl)
                 .path("/coins/markets")
-                .queryParam("vs_currency", "usd")
-                .queryParam("per_page", 50)
+                .queryParam("vs_currency", CURRENCY)
+                .queryParam("per_page", TOP_COINS_LIMIT)
                 .queryParam("page", 1)
                 .toUriString();
 
@@ -163,37 +165,17 @@ public class CoinServiceImpl implements CoinService{
 
     private JsonNode getJson(String url) {
 
+        String responseBody = executeGet(url);
 
         try {
-            ResponseEntity<String> response =
-                    restTemplate.exchange(
-                            url,
-                            HttpMethod.GET,
-                            createHttpEntity(),
-                            String.class
-                    );
-            return objectMapper.readTree(
-                    response.getBody()
-            );
-
-        } catch (HttpClientErrorException e) {
+            return objectMapper.readTree(responseBody);
+        } catch (Exception ex) {
             throw new CoinApiException(
-                    "CoinGecko request failed: " +
-                    e.getStatusCode()
-            );
-        } catch (HttpServerErrorException e) {
-
-            throw new CoinApiException(
-                    "CoinGecko server is currently unavailable"
-            );
-
-        } catch (Exception e) {
-
-            throw new CoinApiException(
-                    "Failed to process CoinGecko response",
-                    e
+                    "Failed to parse CoinGecko response",
+                    ex
             );
         }
+
     }
 
     private <T> T get(
@@ -201,6 +183,22 @@ public class CoinServiceImpl implements CoinService{
             TypeReference<T> typeReference
     ) {
 
+        String responseBody = executeGet(url);
+
+        try {
+            return objectMapper.readValue(
+                    responseBody,
+                    typeReference
+            );
+        } catch (Exception ex) {
+            throw new CoinApiException(
+                    "Failed to parse CoinGecko response",
+                    ex
+            );
+        }
+    }
+    private String executeGet(String url) {
+
         try {
             ResponseEntity<String> response =
                     restTemplate.exchange(
@@ -209,28 +207,37 @@ public class CoinServiceImpl implements CoinService{
                             createHttpEntity(),
                             String.class
                     );
-            return objectMapper.readValue(
-                    response.getBody(),
-                    typeReference
-            );
-        } catch (HttpClientErrorException e) {
 
+            String body = response.getBody();
+
+            if (body == null || body.isBlank()) {
+                throw new CoinApiException(
+                        "CoinGecko returned an empty response"
+                );
+            }
+
+            return body;
+
+        } catch (HttpClientErrorException ex) {
             throw new CoinApiException(
-                    "CoinGecko request failed: " +
-                            e.getStatusCode()
+                    "CoinGecko request failed: "
+                            + ex.getStatusCode(),
+                    ex
             );
 
-        } catch (HttpServerErrorException e) {
-
+        } catch (HttpServerErrorException ex) {
             throw new CoinApiException(
-                    "CoinGecko server is currently unavailable"
+                    "CoinGecko server is currently unavailable",
+                    ex
             );
 
-        } catch (Exception e) {
+        } catch (CoinApiException ex) {
+            throw ex;
 
+        } catch (Exception ex) {
             throw new CoinApiException(
-                    "Failed to process CoinGecko response",
-                    e
+                    "Failed to communicate with CoinGecko",
+                    ex
             );
         }
     }
@@ -247,23 +254,35 @@ public class CoinServiceImpl implements CoinService{
         return new HttpEntity<>(headers);
     }
 
+    private void validatePage(int page) {
+
+        if (page < 1) {
+            throw new IllegalArgumentException(
+                    "Page must be greater than 0"
+            );
+        }
+    }
+
+    private void validateCoinId(String coinId) {
+
+        if (coinId == null || coinId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Coin ID cannot be empty"
+            );
+        }
+    }
+
     private Coin mapCoinDetails(JsonNode json) {
 
         JsonNode marketData = json.path("market_data");
 
         Coin coin = new Coin();
 
-        coin.setId(
-                json.path("id").asText(null)
-        );
+        coin.setId(json.path("id").asText(null));
 
-        coin.setName(
-                json.path("name").asText(null)
-        );
+        coin.setName(json.path("name").asText(null));
 
-        coin.setSymbol(
-                json.path("symbol").asText(null)
-        );
+        coin.setSymbol(json.path("symbol").asText(null));
 
         coin.setImage(
                 json.path("image")

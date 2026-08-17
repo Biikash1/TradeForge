@@ -1,7 +1,8 @@
 package com.cryptotrading.service;
 
 import com.cryptotrading.model.Coin;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
+
 
 import java.util.List;
 
