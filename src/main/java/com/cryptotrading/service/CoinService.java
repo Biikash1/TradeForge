@@ -14,7 +14,7 @@ public interface CoinService {
 
     JsonNode getCoinDetails(String coinId);
 
-    Coin findById( String coinId);
+    Coin findById(String coinId);
 
     JsonNode searchCoin(String keyword);
 

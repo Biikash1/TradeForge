@@ -20,28 +20,6 @@ public class WatchlistController {
     private final UserService userService;
     private final CoinService coinService;
 
-    @GetMapping
-    public ResponseEntity<WatchlistResponse> getUserWatchlist(
-            @RequestHeader("Authorization") String jwt) {
-
-        User user = userService.findUserProfileByJwt(jwt);
-        Watchlist watchlist = watchlistService.findUserWatchlist(user.getId());
-        return ResponseEntity.ok(
-                WatchlistResponse.from(watchlist)
-        );
-    }
-
-
-    @GetMapping("/{watchlistId}")
-    public ResponseEntity<WatchlistResponse> getWatchlistById(
-           @PathVariable Long watchlistId) {
-
-        Watchlist watchlist = watchlistService.findById(watchlistId);
-        return ResponseEntity.ok(
-                WatchlistResponse.from(watchlist)
-        );
-    }
-
 
     // Add/remove coin from watchlist
     @PostMapping("/coin/{coinId}/toggle")
@@ -56,4 +34,34 @@ public class WatchlistController {
                 WatchlistResponse.from(watchlist)
         );
     }
+
+    @GetMapping
+    public ResponseEntity<WatchlistResponse> getUserWatchlist(
+            @RequestHeader("Authorization") String jwt) {
+
+        User user = userService.findUserProfileByJwt(jwt);
+        Watchlist watchlist = watchlistService.findUserWatchlist(user.getId());
+        return ResponseEntity.ok(
+                WatchlistResponse.from(watchlist)
+        );
+    }
+
+
+    @GetMapping("/{watchlistId}")
+    public ResponseEntity<WatchlistResponse> getWatchlistById(
+            @RequestHeader("Authorization") String jwt,
+            @PathVariable Long watchlistId) {
+
+        User user = userService.findUserProfileByJwt(jwt);
+        Watchlist watchlist = watchlistService.findById(watchlistId);
+
+        if (!watchlist.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You are not authorized to access this watchlist");
+        }
+
+        return ResponseEntity.ok(
+                WatchlistResponse.from(watchlist)
+        );
+    }
+
 }

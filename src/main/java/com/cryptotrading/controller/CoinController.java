@@ -17,6 +17,17 @@ public class CoinController {
 
     private final CoinService coinService;
 
+    // {{baseUrl}}/api/coins/details/ethereum 0r bitcoin
+    //When the URL is hit, the coin is stored in the database.
+    @GetMapping("/details/{coinId}")
+    public ResponseEntity<JsonNode> getCoinDetails(
+            @PathVariable String coinId)  {
+
+        return ResponseEntity.ok(
+                coinService.getCoinDetails(coinId)
+        );
+    }
+
     @GetMapping
    public ResponseEntity<List<Coin>> getCoinList(
            @RequestParam(defaultValue = "1")
@@ -65,12 +76,4 @@ public class CoinController {
         );
     }
 
-    @GetMapping("/details/{coinId}")
-    public ResponseEntity<JsonNode> getCoinDetails(
-            @PathVariable String coinId)  {
-
-        return ResponseEntity.ok(
-                coinService.getCoinDetails(coinId)
-        );
-    }
 }
