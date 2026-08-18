@@ -20,10 +20,10 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final WalletService walletService;
-    private final OrderItemRepository orderItemRepository;
     private final AssetService assetService;
 
     @Override
+    @Transactional
     public Order createOrder(User user, OrderItem orderItem, OrderType orderType) {
         BigDecimal totalPrice =
                 orderItem.getCoin()
@@ -32,17 +32,20 @@ public class OrderServiceImpl implements OrderService {
 
         Order order = Order.builder()
                 .user(user)
-                .orderItem(orderItem)
                 .orderType(orderType)
                 .price(totalPrice)
                 .status(OrderStatus.PENDING)
                 .build();
+
+        orderItem.setOrder(order);
+        order.setOrderItem(orderItem);
         return orderRepository.save(order);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Order getOrderById(Long orderId){
+
         return orderRepository.findById(orderId)
                 .orElseThrow(() ->
                         new OrderNotFoundException(
@@ -90,6 +93,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
 
+
     @Transactional
     public Order buyAssets(Coin coin, BigDecimal quantity, User user){
         BigDecimal buyPrice =
@@ -109,10 +113,6 @@ public class OrderServiceImpl implements OrderService {
                         orderItem,
                         OrderType.BUY
                 );
-
-        orderItem.setOrder(order);
-
-        orderItemRepository.save(orderItem);
 
         /*
          * BUY:
@@ -198,9 +198,6 @@ public class OrderServiceImpl implements OrderService {
                         OrderType.SELL
                 );
 
-        orderItem.setOrder(order);
-
-        orderItemRepository.save(orderItem);
 
         /*
          * SELL:
@@ -260,13 +257,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
         private OrderItem createOrderItem(Coin coin, BigDecimal quantity, BigDecimal buyPrice, BigDecimal sellPrice) {
-            OrderItem orderItem = OrderItem.builder()
+            return OrderItem.builder()
                     .coin(coin)
                     .quantity(quantity)
                     .buyPrice(buyPrice)
                     .sellPrice(sellPrice)
                     .build();
-            return orderItemRepository.save(orderItem);
         }
 
     private void validateOrder(

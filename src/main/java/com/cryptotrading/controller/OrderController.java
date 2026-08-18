@@ -2,6 +2,7 @@ package com.cryptotrading.controller;
 
 import com.cryptotrading.domain.OrderType;
 import com.cryptotrading.dto.OrderRequest;
+import com.cryptotrading.dto.OrderResponse;
 import com.cryptotrading.model.Coin;
 import com.cryptotrading.model.Order;
 import com.cryptotrading.model.User;
@@ -26,7 +27,7 @@ public class OrderController {
     private final CoinService coinService;
 
     @PostMapping
-    public ResponseEntity<Order> createOrder(
+    public ResponseEntity<OrderResponse> createOrder(
             @RequestHeader("Authorization") String jwt,
             @Valid @RequestBody OrderRequest request) {
 
@@ -34,11 +35,13 @@ public class OrderController {
         Coin coin = coinService.findById(request.getCoinId());
 
         Order order = orderService.processOrder(coin, request.getQuantity(), request.getOrderType(), user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(order);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(OrderResponse.from(order));
     }
 
     @GetMapping("/{orderId}")
-    public ResponseEntity<Order> getOrderById(
+    public ResponseEntity<OrderResponse> getOrderById(
             @RequestHeader("Authorization") String jwt,
             @PathVariable Long orderId)  {
 
@@ -54,11 +57,11 @@ public class OrderController {
             );
         }
 
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok( OrderResponse.from(order));
     }
 
     @GetMapping
-    public ResponseEntity<List<Order>> getAllOrderForUser(
+    public ResponseEntity<List<OrderResponse>> getAllOrderForUser(
             @RequestHeader("Authorization") String jwt,
             @RequestParam(required = false) OrderType orderType,
             @RequestParam(required = false) String assetSymbol){
@@ -72,7 +75,11 @@ public class OrderController {
                         assetSymbol
                 );
 
-        return ResponseEntity.ok(orders);
+        List<OrderResponse> response = orders.stream()
+                .map(OrderResponse::from)
+                .toList();
+
+        return ResponseEntity.ok(response);
     }
 
 }

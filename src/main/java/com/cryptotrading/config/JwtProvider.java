@@ -4,8 +4,10 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Collection;
@@ -13,43 +15,66 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
+@Component
 public class JwtProvider {
 
-    private static SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(JwtConstant.SECRET_KEY));
+    private final SecretKey key;
+    private final long expiration;
 
-    public static String generateToken(Authentication authentication) {
+    public JwtProvider(
+            @Value("${jwt.secret}") String secret,
+            @Value("${jwt.expiration}") long expiration) {
+
+        this.key = Keys.hmacShaKeyFor(
+                Decoders.BASE64.decode(secret)
+        );
+
+        this.expiration = expiration;
+    }
+
+    public String generateToken(Authentication authentication) {
         Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
         String roles = populateAuthorities(authorities);
 
-        String jwt = Jwts.builder()
-                . issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 86400000))
-                .claim("email", authentication.getName())
+        Date issuedAt = new Date();
+
+        Date expirationDate =
+                new Date(
+                        issuedAt.getTime() + expiration
+                );
+
+        return Jwts.builder()
+                .subject(authentication.getName())
+                .issuedAt(issuedAt)
+                .expiration(expirationDate)
                 .claim("authorities", roles)
                 .signWith(key)
                 .compact();
-        return jwt;
     }
 
-    public static String getEmailFromToken(String token) {
+    public String getEmailFromToken(String token) {
         if (token.startsWith("Bearer ")) {
-            token = token.substring(7);
+            token = token.substring(7).trim();
         }
 
-        Claims claims = Jwts.parser()
+        return parseToken(token).getSubject();
+    }
+
+    private String populateAuthorities(Collection<? extends GrantedAuthority> authorities) {
+        Set<String> auth = new HashSet<>();
+
+        for(GrantedAuthority authority : authorities) {
+            auth.add(authority.getAuthority());
+        }
+        return String.join(",", auth);
+    }
+
+    public Claims parseToken(String token) {
+
+        return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
-        return claims.get("email", String.class);
-    }
-
-    private static String populateAuthorities(Collection<? extends GrantedAuthority> authorities) {
-        Set<String> auth = new HashSet<>();
-        for(GrantedAuthority grant : authorities) {
-            auth.add(grant.getAuthority());
-        }
-        return String.join(",", auth);
     }
 }

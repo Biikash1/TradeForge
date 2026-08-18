@@ -1,5 +1,6 @@
 package com.cryptotrading.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -17,7 +18,10 @@ import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class AppConfig {
+
+    private final JwtTokenValidator jwtTokenValidator;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -29,35 +33,40 @@ public class AppConfig {
             HttpSecurity http) throws Exception {
 
         http
+                //JWT authentication is stateless.
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
-
+                   //Authorization rules
                 .authorizeHttpRequests(authorize ->
                         authorize
-                                // Public authentication endpoints
+                                // Authentication APIs are public.
                                 .requestMatchers(
                                         "/auth/**"
                                 ).permitAll()
 
-                                // Everything under /api requires authentication
+                                // All application APIs require authentication.
                                 .requestMatchers(
                                         "/api/**"
                                 ).authenticated()
 
-                                // Other endpoints
+                                // Everything else is public
                                 .anyRequest().permitAll()
                 )
 
+                // Validate JWT before Spring authentication filters.
                 .addFilterBefore(
-                        new JwtTokenValidator(),
+                        jwtTokenValidator,
                         BasicAuthenticationFilter.class
                 )
 
+                 //* CSRF is not required for stateless
+                //  * JWT authentication.
                 .csrf(csrf -> csrf.disable())
 
+                //Enable CORS
                 .cors(cors ->
                         cors.configurationSource(
                                 corsConfigurationSource()
@@ -74,7 +83,7 @@ public class AppConfig {
                 new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:3000")
+                List.of("http://localhost:5713")
         );
 
         configuration.setAllowedMethods(

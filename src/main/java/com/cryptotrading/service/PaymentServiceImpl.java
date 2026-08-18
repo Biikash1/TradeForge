@@ -43,9 +43,6 @@ public class PaymentServiceImpl implements PaymentService{
     @Value("${razorpay.callback.url}")
     private String razorpayCallbackUrl;
 
-    @Value("${stripe.key.id}")
-    private String stripeKeyId;
-
     @Value("${stripe.key.secret}")
     private String stripeKeySecret;
 

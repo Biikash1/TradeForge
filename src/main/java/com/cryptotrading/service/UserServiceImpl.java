@@ -9,18 +9,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class UserServiceImpl implements UserService{
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
 
     @Override
     public User findUserProfileByJwt(String jwt) {
-     String email = JwtProvider.getEmailFromToken(jwt);
+     String email = jwtProvider.getEmailFromToken(jwt);
      return userRepository.findByEmail(email)
              .orElseThrow(() ->
                      new UsernameNotFoundException("User not found"));
@@ -28,7 +31,9 @@ public class UserServiceImpl implements UserService{
 
     @Override
     public User findUserByEmail(String email) {
-       return userRepository.findByEmail(email)
+       return userRepository.findByEmail(
+               email.trim().toLowerCase()
+               )
                 .orElseThrow(() ->
                 new UsernameNotFoundException("User not found"));
     }
@@ -49,6 +54,24 @@ public class UserServiceImpl implements UserService{
             String sendTo,
             User user) {
 
+        if (verificationType == null) {
+            throw new IllegalArgumentException(
+                    "Verification type is required"
+            );
+        }
+
+        if (sendTo == null || sendTo.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Two-factor authentication destination is required"
+            );
+        }
+
+        if (user == null) {
+            throw new IllegalArgumentException(
+                    "User is required"
+            );
+        }
+
         TwoFactorAuth twoFactorAuth = new TwoFactorAuth();
         twoFactorAuth.setEnabled(true);
         twoFactorAuth.setSendTo(verificationType);
@@ -60,6 +83,21 @@ public class UserServiceImpl implements UserService{
 
     @Override
     public User updatePassword(User user, String newPassword) {
+
+        if (user == null) {
+            throw new IllegalArgumentException(
+                    "User is required"
+            );
+        }
+
+        if (newPassword == null
+                || newPassword.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Password cannot be empty"
+            );
+        }
+
        user.setPassword(
                passwordEncoder.encode(newPassword)
        );
