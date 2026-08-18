@@ -20,6 +20,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,9 +40,7 @@ public class AuthController {
     public ResponseEntity<AuthResponse> register(
            @Valid @RequestBody RegisterRequest request) {
 
-        String email = request.getEmail()
-                .trim()
-                .toLowerCase();
+        String email = normalizeEmail(request.getEmail());
 
         if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException(
@@ -85,9 +84,7 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(
            @Valid @RequestBody AuthRequest request)  {
 
-        String email = request.getEmail()
-                .trim()
-                .toLowerCase();
+        String email = normalizeEmail(request.getEmail());
 
         Authentication authentication = authenticate(
                 email,
@@ -104,11 +101,7 @@ public class AuthController {
 
 
          //Check whether 2FA is enabled
-        if (loggedInUser.getTwoFactorAuth() != null
-                && loggedInUser
-                .getTwoFactorAuth()
-                .isEnabled()) {
-
+        if (isTwoFactorEnabled(loggedInUser)) {
 
             return initiateTwoFactorAuthentication(
                     loggedInUser
@@ -130,12 +123,74 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/two-factor/otp")
+    public ResponseEntity<AuthResponse> verifySigninOtp(
+            @Valid @RequestBody VerifyOtpRequest request)  {
+
+        TwoFactorOTP twoFactorOTP =
+                twoFactorOtpService.findById(request.getSession());
+
+        boolean verified =
+                twoFactorOtpService.verifyTwoFactorOtp(
+                        twoFactorOTP,
+                        request.getOtp()
+                );
+
+        if (!verified) {
+            throw new BadCredentialsException(
+                    "Invalid or expired OTP"
+            );
+        }
+
+        User user = twoFactorOTP.getUser();
+
+        // * Generate JWT only after successful
+        //         * 2FA verification.
+
+        UserDetails userDetails =
+                customUserDetailsService.loadUserByUsername(
+                        user.getEmail()
+                );
+
+        // Create authenticated Authentication object
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
+
+        // Generate JWT only after successful 2FA verification
+        String jwt =  jwtProvider.generateToken(
+                authentication
+        );
+
+        // OTP is one-time use
+        twoFactorOtpService
+                .deleteTwoFactorOtp(twoFactorOTP);
+
+        AuthResponse response = new AuthResponse();
+        response.setId(user.getId());
+        response.setFullName(user.getFullName());
+        response.setEmail(user.getEmail());
+        response.setMobile(user.getMobile());
+
+        response.setMessage(
+                "Two-factor authentication verified"
+        );
+        response.setTwoFactorAuthEnabled(true);
+        response.setJwt(jwt);
+        response.setStatus(true);
+
+        return ResponseEntity.ok(response);
+    }
+
     private ResponseEntity<AuthResponse>
     initiateTwoFactorAuthentication(User user) {
 
         String otp = OtpUtils.generateOTP();
 
-        //Remove previous OTP
+        //Remove old OTP if one exists.
         TwoFactorOTP oldTwoFactorOTP =
                 twoFactorOtpService.findByUser(
                         user.getId()
@@ -150,8 +205,7 @@ public class AuthController {
         TwoFactorOTP newTwoFactorOTP =
                 twoFactorOtpService.createTwoFactorOtp(
                         user,
-                        otp,
-                        null
+                        otp
                 );
 
         // Send OTP through email
@@ -168,6 +222,11 @@ public class AuthController {
          */
         AuthResponse response = new AuthResponse();
 
+        response.setId(user.getId());
+        response.setFullName(user.getFullName());
+        response.setEmail(user.getEmail());
+        response.setMobile(user.getMobile());
+
         response.setMessage(
                 "Two-factor authentication required"
         );
@@ -181,13 +240,35 @@ public class AuthController {
 
     }
 
+    private boolean isTwoFactorEnabled(User user) {
+
+        return user.getTwoFactorAuth() != null
+                && user.getTwoFactorAuth().isEnabled();
+    }
+
+    private String normalizeEmail(String email) {
+
+        if (email == null || email.isBlank()) {
+
+            throw new BadCredentialsException(
+                    "Email is required"
+            );
+        }
+
+        return email
+                .trim()
+                .toLowerCase();
+    }
+
     private Authentication authenticate(String userName, String password) {
 
-        UserDetails userDetails =
-                customUserDetailsService
-                        .loadUserByUsername(userName);
+        UserDetails userDetails;
 
-        if (userDetails == null) {
+        try {
+            userDetails =
+                    customUserDetailsService
+                            .loadUserByUsername(userName);
+        } catch (UsernameNotFoundException e) {
             throw new BadCredentialsException(
                     "Invalid credentials"
             );
@@ -223,65 +304,6 @@ public class AuthController {
         return response;
     }
 
-    @PostMapping("/two-factor/otp")
-    public ResponseEntity<AuthResponse> verifySigninOtp(
-            @Valid @RequestBody VerifyOtpRequest request)  {
 
-        TwoFactorOTP twoFactorOTP =
-                twoFactorOtpService.findById(request.getSession());
 
-        if (twoFactorOTP == null) {
-            throw new IllegalArgumentException(
-                    "Invalid or expired OTP session"
-            );
-        }
-
-        boolean verified =
-                twoFactorOtpService.verifyTwoFactorOtp(
-                        twoFactorOTP,
-                        request.getOtp()
-                );
-
-        if (!verified) {
-            throw new BadCredentialsException(
-                    "Invalid or expired OTP"
-            );
-        }
-
-        // * Generate JWT only after successful
-        //         * 2FA verification.
-
-        UserDetails userDetails =
-                customUserDetailsService.loadUserByUsername(
-                        twoFactorOTP.getUser().getEmail()
-                );
-
-        // Create authenticated Authentication object
-        Authentication authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-
-        // Generate JWT only after successful 2FA verification
-        String jwt =  jwtProvider.generateToken(
-                authentication
-        );
-
-        // OTP is one-time use
-        twoFactorOtpService
-                .deleteTwoFactorOtp(twoFactorOTP);
-
-        AuthResponse response = new AuthResponse();
-
-        response.setMessage(
-                "Two-factor authentication verified"
-        );
-        response.setTwoFactorAuthEnabled(true);
-        response.setJwt(jwt);
-        response.setStatus(true);
-
-        return ResponseEntity.ok(response);
-    }
 }

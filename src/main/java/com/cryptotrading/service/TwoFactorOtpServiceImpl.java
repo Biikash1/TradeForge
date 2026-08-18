@@ -2,7 +2,6 @@ package com.cryptotrading.service;
 
 import com.cryptotrading.exception.InvalidOtpException;
 import com.cryptotrading.exception.OtpExpiredException;
-import com.cryptotrading.exception.ResourceNotFoundException;
 import com.cryptotrading.model.TwoFactorOTP;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.TwoFactorOtpRepository;
@@ -18,23 +17,22 @@ import java.time.LocalDateTime;
 public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
 
     private final TwoFactorOtpRepository twoFactorOtpRepository;
-
     private final PasswordEncoder passwordEncoder;
 
-    private static final int OTP_EXPIRATION_MINUTES = 5;
+    private static final int OTP_EXPIRATION_MINUTES = 15;
 
     private static final int MAX_ATTEMPTS = 5;
 
     @Override
     @Transactional
-    public TwoFactorOTP createTwoFactorOtp(User user, String otp, String jwt) {
+    public TwoFactorOTP createTwoFactorOtp(User user, String otp) {
 
         validateCreateRequest(
                 user,
-                otp,
-                jwt
+                otp
         );
 
+        // Remove any previous OTP.
         twoFactorOtpRepository.deleteByUserId(
                 user.getId()
         );
@@ -42,7 +40,6 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
         TwoFactorOTP twoFactorOTP =
                 TwoFactorOTP.builder()
                         .otpHash(passwordEncoder.encode(otp))
-                        .jwt(jwt)
                         .user(user)
                         .createdAt(LocalDateTime.now())
                         .expiresAt(
@@ -66,14 +63,16 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
             throw new IllegalArgumentException( "User ID cannot be null" );
         }
 
+        /*
+         * No OTP is a valid situation.
+         *
+         * For example, when a user is logging in
+         * with 2FA for the first time, there may be
+         * no previous OTP.
+         */
         return twoFactorOtpRepository
                 .findByUserId(userId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Two-factor OTP not found for user: "
-                                        + userId
-                        )
-                );
+                .orElse(null);
     }
 
     @Override
@@ -87,21 +86,20 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
         return twoFactorOtpRepository
                 .findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Two-factor OTP not found with id: "
-                                        + id
+                        new InvalidOtpException(
+                                "Invalid or expired OTP session"
                         )
                 );
     }
 
     @Override
+    @Transactional
     public boolean verifyTwoFactorOtp(TwoFactorOTP twoFactorOTP, String otp) {
 
-        validateVerificationRequest( twoFactorOTP, otp );
+        validateVerificationRequest(twoFactorOTP, otp);
 
-          // Prevent reuse.
+          // Prevent OTP reuse.
         if (twoFactorOTP.isVerified()) {
-
             throw new InvalidOtpException(
                     "OTP has already been used"
             );
@@ -110,7 +108,6 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
 
          // Check expiration before comparing OTP.
         if (twoFactorOTP.isExpired()) {
-
             throw new OtpExpiredException(
                     "OTP has expired"
             );
@@ -147,14 +144,14 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
             );
         }
 
-          //Mark OTP as used.
+          //OTP successfully verified.
         twoFactorOTP.setVerified(true);
 
         twoFactorOtpRepository.save(
                 twoFactorOTP
         );
 
-        //Delete it after successful verification.
+        //OTP is one-time use.
         twoFactorOtpRepository.delete( twoFactorOTP );
 
         return true;
@@ -162,6 +159,7 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
     }
 
     @Override
+    @Transactional
     public void deleteTwoFactorOtp(TwoFactorOTP twoFactorOTP) {
         if (twoFactorOTP == null) {
             return;
@@ -174,8 +172,7 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
 
     private void validateCreateRequest(
             User user,
-            String otp,
-            String jwt) {
+            String otp) {
 
         if (user == null) {
             throw new IllegalArgumentException(
@@ -188,14 +185,6 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
 
             throw new IllegalArgumentException(
                     "OTP cannot be empty"
-            );
-        }
-
-        if (jwt == null ||
-                jwt.isBlank()) {
-
-            throw new IllegalArgumentException(
-                    "JWT cannot be empty"
             );
         }
 

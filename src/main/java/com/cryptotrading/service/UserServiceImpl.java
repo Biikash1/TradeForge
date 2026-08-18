@@ -22,16 +22,29 @@ public class UserServiceImpl implements UserService{
     private final JwtProvider jwtProvider;
 
     @Override
+    @Transactional(readOnly = true)
     public User findUserProfileByJwt(String jwt) {
+
      String email = jwtProvider.getEmailFromToken(jwt);
+
      return userRepository.findByEmail(email)
              .orElseThrow(() ->
                      new UsernameNotFoundException("User not found"));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public User findUserByEmail(String email) {
-       return userRepository.findByEmail(
+
+        if (email == null || email.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Email is required"
+            );
+        }
+
+
+        return userRepository.findByEmail(
                email.trim().toLowerCase()
                )
                 .orElseThrow(() ->
@@ -39,7 +52,16 @@ public class UserServiceImpl implements UserService{
     }
 
     @Override
+    @Transactional(readOnly = true)
     public User findUserById(Long userId) {
+
+        if (userId == null) {
+
+            throw new IllegalArgumentException(
+                    "User ID is required"
+            );
+        }
+
         return userRepository.findById(userId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(

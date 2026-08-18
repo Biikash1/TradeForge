@@ -25,9 +25,6 @@ public class TwoFactorOTP {
     @Column(nullable = false)
     private String otpHash;
 
-    @JsonIgnore
-    @Column(nullable = false, length = 2048)
-    private String jwt;
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @OneToOne

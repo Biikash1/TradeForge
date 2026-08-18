@@ -21,6 +21,25 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
 
+    /**
+     * Skip JWT validation for authentication endpoints.
+     *
+     * These endpoints must be accessible without JWT:
+     *
+     * /auth/signup
+     * /auth/signin
+     * /auth/two-factor/otp
+     */
+    @Override
+    protected boolean shouldNotFilter(
+            HttpServletRequest request) {
+
+        String path = request.getServletPath();
+
+        return path.startsWith("/auth/");
+    }
+
+
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {

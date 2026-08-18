@@ -5,7 +5,7 @@ import com.cryptotrading.model.User;
 
 public interface TwoFactorOtpService {
 
-    TwoFactorOTP createTwoFactorOtp(User user, String otp, String jwt);
+    TwoFactorOTP createTwoFactorOtp(User user, String otp);
 
     TwoFactorOTP findByUser(Long userId);
 
