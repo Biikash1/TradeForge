@@ -333,6 +333,78 @@ erDiagram
 
     USERS ||--o{ FORGOT_PASSWORD_TOKENS : receives
 ```
+
+## 🔐 Authentication & JWT Architecture
+
+TradeForge uses **JWT-based stateless authentication** with **BCrypt password hashing** and optional **Two-Factor Authentication (2FA)**.
+
+### Authentication Flow
+
+```text
+                         ┌──────────────────────┐
+                         │       CLIENT         │
+                         │   Postman / React    │
+                         └──────────┬───────────┘
+                                    │
+                  ┌─────────────────┴─────────────────┐
+                  │                                   │
+             POST /auth/signup                  POST /auth/signin
+                  │                                   │
+                  ▼                                   ▼
+        ┌───────────────────┐              ┌───────────────────┐
+        │  AuthController   │              │  AuthController   │
+        └─────────┬─────────┘              └─────────┬─────────┘
+                  │                                   │
+                  ▼                                   ▼
+        Validate RegisterRequest             Validate AuthRequest
+                  │                                   │
+                  ▼                                   ▼
+        Check email exists                    Authenticate user
+                  │                                   │
+                  ▼                                   ▼
+        BCrypt encode password               Verify BCrypt password
+                  │                                   │
+                  ▼                                   ▼
+        Save User to MySQL                       Find User
+                  │                                   │
+                  ▼                                   ▼
+        Create Authentication              Check 2FA enabled?
+                  │                         ┌─────────┴─────────┐
+                  │                         │                   │
+                  │                        YES                 NO
+                  │                         │                   │
+                  │                         ▼                   ▼
+                  │                    Generate OTP        Generate JWT
+                  │                         │                   │
+                  │                    Send OTP Email           │
+                  │                         │                   │
+                  │                    Return Session           │
+                  │                         │                   │
+                  │                    Verify OTP               │
+                  │                         │                   │
+                  │                         ▼                   │
+                  │                    Generate JWT             │
+                  │                         │                   │
+                  └──────────────┬──────────┴───────────────────┘
+                                 │
+                                 ▼
+                         ┌─────────────────┐
+                         │   JwtProvider   │
+                         └────────┬────────┘
+                                  │
+                                  ▼
+                         Sign with SecretKey
+                                  │
+                                  ▼
+                           Return JWT Token
+                                  │
+                                  ▼
+                         ┌─────────────────┐
+                         │     CLIENT      │
+                         │   Store JWT     │
+                         └─────────────────┘
+  ```
+                         
 ## 💳 Production-Ready Payment Architecture
 
 TradeForge provides a secure and extensible payment architecture supporting
