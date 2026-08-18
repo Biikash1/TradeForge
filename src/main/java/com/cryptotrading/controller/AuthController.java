@@ -5,13 +5,13 @@ import com.cryptotrading.config.JwtProvider;
 import com.cryptotrading.dto.AuthRequest;
 import com.cryptotrading.dto.AuthResponse;
 import com.cryptotrading.dto.RegisterRequest;
+import com.cryptotrading.dto.VerifyOtpRequest;
 import com.cryptotrading.model.TwoFactorOTP;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.UserRepository;
 import com.cryptotrading.service.CustomUserDetailsService;
 import com.cryptotrading.service.EmailService;
 import com.cryptotrading.service.TwoFactorOtpService;
-import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -104,8 +104,7 @@ public class AuthController {
 
             String otp = OtpUtils.generateOTP();
 
-
-              //Remove previous OTP
+            //Remove previous OTP
             TwoFactorOTP oldTwoFactorOTP =
                     twoFactorOtpService.findByUser(
                             loggedInUser.getId()
@@ -115,7 +114,6 @@ public class AuthController {
                 twoFactorOtpService
                         .deleteTwoFactorOtp(oldTwoFactorOTP);
             }
-
 
              // Create new OTP session.
             TwoFactorOTP newTwoFactorOTP =
@@ -144,8 +142,6 @@ public class AuthController {
                     .status(HttpStatus.ACCEPTED)
                     .body(response);
         }
-
-
 
          // Normal login.
         String jwt = JwtProvider.generateToken(authentication);
@@ -202,12 +198,11 @@ public class AuthController {
         return response;
     }
 
-    @PostMapping("/two-factor/otp/{otp}")
+    @PostMapping("/two-factor/otp/")
     public ResponseEntity<AuthResponse> verifySigninOtp(
-            @PathVariable String otp,
-            @RequestParam String id) throws Exception {
+            @Valid @RequestBody VerifyOtpRequest request)  {
         TwoFactorOTP twoFactorOTP =
-                twoFactorOtpService.findById(id);
+                twoFactorOtpService.findById(request.getSession());
 
         if (twoFactorOTP == null) {
             throw new IllegalArgumentException(
@@ -218,7 +213,7 @@ public class AuthController {
         boolean verified =
                 twoFactorOtpService.verifyTwoFactorOtp(
                         twoFactorOTP,
-                        otp
+                        request.getOtp()
                 );
 
         if (!verified) {

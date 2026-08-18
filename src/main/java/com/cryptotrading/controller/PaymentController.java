@@ -7,6 +7,7 @@ import com.cryptotrading.model.PaymentOrder;
 import com.cryptotrading.model.User;
 import com.cryptotrading.service.PaymentService;
 import com.cryptotrading.service.UserService;
+import jakarta.validation.constraints.DecimalMin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +27,10 @@ public class PaymentController {
     @PostMapping("/{paymentMethod}/amount/{amount}")
     public ResponseEntity<PaymentResponse> paymentHandler(
             @PathVariable PaymentMethod paymentMethod,
-            @PathVariable BigDecimal amount,
+            @PathVariable
+            @DecimalMin(value = "0.01",
+                    message = "Payment amount must be greater than 0")
+            BigDecimal amount,
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);

@@ -2,6 +2,7 @@ package com.cryptotrading.controller;
 
 import com.cryptotrading.model.Coin;
 import com.cryptotrading.service.CoinService;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,7 +11,7 @@ import tools.jackson.databind.JsonNode;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/coins")
+@RequestMapping("/api/coins")
 @RequiredArgsConstructor
 public class CoinController {
 
@@ -18,7 +19,10 @@ public class CoinController {
 
     @GetMapping
    public ResponseEntity<List<Coin>> getCoinList(
-           @RequestParam(defaultValue = "1") int page) {
+           @RequestParam(defaultValue = "1")
+           @Min(value = 1, message = "Page must be greater than 0")
+           int page) {
+
        return ResponseEntity.ok(
                coinService.getCoinList(page)
        );
@@ -27,7 +31,9 @@ public class CoinController {
     @GetMapping("/{coinId}/chart")
     public ResponseEntity<JsonNode> getMarketChart(
             @PathVariable String coinId,
-            @RequestParam(defaultValue = "7") int days) {
+            @RequestParam(defaultValue = "7")
+            @Min(value = 1, message = "Days must be greater than 0")
+            int days) {
 
         return ResponseEntity.ok(
                 coinService.getMarketChart(coinId, days)
@@ -51,7 +57,7 @@ public class CoinController {
         );
     }
 
-    @GetMapping("/trading")
+    @GetMapping("/trending")
     public ResponseEntity<JsonNode> getTradingCoins()  {
 
         return ResponseEntity.ok(

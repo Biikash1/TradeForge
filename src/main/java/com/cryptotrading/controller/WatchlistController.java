@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class WatchlistController {
 
     private final WatchlistService watchlistService;
-    private final UserService userService;;
+    private final UserService userService;
     private final CoinService coinService;
 
     @GetMapping
@@ -42,7 +42,9 @@ public class WatchlistController {
         );
     }
 
-    @GetMapping("/coin/{coinId}")
+
+    // Add/remove coin from watchlist
+    @PostMapping("/coin/{coinId}/toggle")
     public ResponseEntity<WatchlistResponse> toggleCoin(
             @RequestHeader("Authorization") String jwt,
             @PathVariable String coinId)  {

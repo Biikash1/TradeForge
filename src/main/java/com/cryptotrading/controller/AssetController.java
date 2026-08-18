@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/asset")
+@RequestMapping("/api/assets")
 @RequiredArgsConstructor
 public class AssetController {
 
@@ -20,9 +20,19 @@ public class AssetController {
     private final UserService userService;
 
     @GetMapping("/{assetId}")
-    public ResponseEntity<Asset> getAssetById(@PathVariable Long assetId){
+    public ResponseEntity<Asset> getAssetById(
+            @PathVariable Long assetId,
+            @RequestHeader("Authorization") String jwt){
+
+        User user = userService.findUserProfileByJwt(jwt);
+
         Asset asset = assetService.getAssetById(assetId);
-        return ResponseEntity.ok().body(asset);
+
+        if (!asset.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You don't have access to this asset");
+        }
+
+        return ResponseEntity.ok(asset);
     }
 
     @GetMapping("/coin/{coinId}/user")
@@ -41,7 +51,7 @@ public class AssetController {
             @RequestHeader("Authorization") String jwt){
 
         User user = userService.findUserProfileByJwt(jwt);
-        List<Asset> asset = assetService.getUserAssets(user.getId());
-        return ResponseEntity.ok().body(asset);
+        List<Asset> assets = assetService.getUserAssets(user.getId());
+        return ResponseEntity.ok().body(assets);
     }
 }

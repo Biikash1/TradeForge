@@ -10,6 +10,7 @@ import com.cryptotrading.service.WithdrawalService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,7 +23,7 @@ public class WithdrawalController {
     private final WithdrawalService withdrawalService;
     private final UserService userService;
 
-    @PostMapping("/api/withdrawal/{amount}")
+    @PostMapping
     public ResponseEntity<WithdrawalResponse> requestWithdrawal(
             @RequestHeader("Authorization") String jwt,
             @Valid @RequestBody WithdrawalRequest request) {
@@ -39,6 +40,7 @@ public class WithdrawalController {
     }
 
     @PatchMapping("/{id}/process")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<WithdrawalResponse> proceedWithdrawal(
             @PathVariable Long id,
             @Valid @RequestBody WithdrawalProcessRequest request,
@@ -56,7 +58,7 @@ public class WithdrawalController {
         );
     }
 
-    @GetMapping
+    @GetMapping("/admin")
     public ResponseEntity<List<WithdrawalResponse>> getWithdrawalHistory(
           @RequestHeader("Authorization") String jwt){
 
@@ -73,6 +75,7 @@ public class WithdrawalController {
     }
 
     @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<WithdrawalResponse>> getAllWithdrawalRequests(
             @RequestHeader("Authorization") String jwt) {
 

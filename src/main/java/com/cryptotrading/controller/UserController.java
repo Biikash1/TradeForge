@@ -27,19 +27,8 @@ public class UserController {
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
-        UserProfileResponse response = UserProfileResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .mobile(user.getMobile())
-                .role(user.getRole())
-                .twoFactorEnabled(
-                        user.getTwoFactorAuth() != null
-                                && user.getTwoFactorAuth().isEnabled()
-                )
-                .build();
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(buildUserProfileResponse(user));
     }
 
     @GetMapping("/profile/{userId}")
@@ -47,19 +36,7 @@ public class UserController {
             @PathVariable Long userId) {
         User user = userService.findUserById(userId);
 
-        UserProfileResponse response = UserProfileResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .mobile(user.getMobile())
-                .role(user.getRole())
-                .twoFactorEnabled(
-                        user.getTwoFactorAuth() != null
-                                && user.getTwoFactorAuth().isEnabled()
-                )
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(buildUserProfileResponse(user));
     }
 
 
@@ -131,13 +108,14 @@ public class UserController {
 
 
     @PatchMapping("/enable-two-factor/verify-otp/{otp}")
-    public ResponseEntity<User> enableTwoFactorAuthentication(
+    public ResponseEntity<UserProfileResponse> enableTwoFactorAuthentication(
             @PathVariable String otp,
             @RequestHeader("Authorization") String jwt) {
         User user = userService.findUserProfileByJwt(jwt);
 
         VerificationType verificationType =
-                user.getTwoFactorAuth().getSendTo() != null
+                user.getTwoFactorAuth() != null
+                        && user.getTwoFactorAuth().getSendTo() != null
                         ? user.getTwoFactorAuth().getSendTo()
                         : VerificationType.EMAIL;
 
@@ -147,6 +125,12 @@ public class UserController {
                         verificationType,
                         VerificationPurpose.TWO_FACTOR_AUTH
                 );
+
+        if (verificationCode == null) {
+            throw new IllegalArgumentException(
+                    "No valid two-factor authentication OTP found"
+            );
+        }
 
         verificationCodeService.verifyCode(
                 verificationCode,
@@ -166,7 +150,7 @@ public class UserController {
                         user
                 );
 
-        return ResponseEntity.ok(updatedUser);
+        return ResponseEntity.ok(buildUserProfileResponse(updatedUser));
     }
 
     @PostMapping("/reset-password/send-otp")
@@ -219,15 +203,24 @@ public class UserController {
 
     }
 
+    //Verify password-reset OTP and update password.
+    //     * Example:
+    //     * PATCH /api/users/reset-password/verify-otp?id=10
 
     @PatchMapping("/reset-password/verify-otp")
-    public ResponseEntity<ApiResponse> VerifyResetPassword(
+    public ResponseEntity<ApiResponse> verifyResetPassword(
             @RequestParam Long id,
             @Valid @RequestBody ResetPasswordRequest request) {
 
 
         VerificationCode verificationCode =
                 verificationCodeService.getVerificationCodeById(id);
+
+        if (verificationCode == null) {
+            throw new IllegalArgumentException(
+                    "Invalid or expired verification code"
+            );
+        }
 
         if (verificationCode.getVerificationPurpose()
                 != VerificationPurpose.PASSWORD_RESET) {
@@ -291,5 +284,21 @@ public class UserController {
           }
       }
   }
+
+    private UserProfileResponse buildUserProfileResponse(
+            User user) {
+
+        return UserProfileResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .mobile(user.getMobile())
+                .role(user.getRole())
+                .twoFactorEnabled(
+                        user.getTwoFactorAuth() != null
+                                && user.getTwoFactorAuth().isEnabled()
+                )
+                .build();
+    }
 
 }
