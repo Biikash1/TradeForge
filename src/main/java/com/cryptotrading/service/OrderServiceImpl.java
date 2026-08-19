@@ -5,7 +5,6 @@ import com.cryptotrading.domain.OrderType;
 import com.cryptotrading.exception.InvalidOrderException;
 import com.cryptotrading.exception.OrderNotFoundException;
 import com.cryptotrading.model.*;
-import com.cryptotrading.repository.OrderItemRepository;
 import com.cryptotrading.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

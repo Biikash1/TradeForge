@@ -5,8 +5,6 @@ import com.cryptotrading.dto.PaymentResponse;
 import com.cryptotrading.model.PaymentOrder;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.Wallet;
-import com.razorpay.RazorpayException;
-import com.stripe.exception.StripeException;
 
 import java.math.BigDecimal;
 
