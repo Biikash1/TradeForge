@@ -38,14 +38,12 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> register(
-           @Valid @RequestBody RegisterRequest request) {
+            @Valid @RequestBody RegisterRequest request) {
 
         String email = normalizeEmail(request.getEmail());
 
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException(
-                    "Email already exists"
-            );
+            throw new BadCredentialsException("Email already exists");
         }
 
         User newUser = new User();
@@ -56,28 +54,24 @@ public class AuthController {
 
         User savedUser = userRepository.save(newUser);
 
-         // Authenticate the newly registered user.
-         // We generate a fresh JWT for this successful authentication
-        Authentication authentication =
-                authenticate(
-                        savedUser.getEmail(),
-                        request.getPassword()
-                );
+        // 1. Create an authenticated token directly for the new user
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                savedUser.getEmail(),
+                null,
+                java.util.Collections.emptyList() // Or pass user roles/authorities if configured
+        );
 
-        String jwt =
-                jwtProvider.generateToken(
-                        authentication
-                );
+        // 2. Generate the JWT
+        String jwt = jwtProvider.generateToken(authentication);
 
-       return ResponseEntity
-               .status(HttpStatus.CREATED)
-               .body(
-                       buildAuthResponse(
-                               savedUser,
-                               jwt,
-                               "User registered successfully"
-                       )
-               );
+        // 3. Return response with JWT and user details
+        AuthResponse response = buildAuthResponse(
+                savedUser,
+                jwt,
+                "User registered successfully"
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/signin")
