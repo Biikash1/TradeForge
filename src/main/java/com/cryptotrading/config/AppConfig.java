@@ -52,7 +52,7 @@ public class AppConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Ensure this port matches your frontend client
-        configuration.setAllowedOrigins(List.of("http://localhost:5713"));
+        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
 
         configuration.setAllowedMethods(List.of(
                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
