@@ -24,10 +24,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Order createOrder(User user, OrderItem orderItem, OrderType orderType) {
-        BigDecimal totalPrice =
-                orderItem.getCoin()
-                        .getCurrentPrice()
-                        .multiply(orderItem.getQuantity());
+        BigDecimal coinPrice = BigDecimal.valueOf(orderItem.getCoin().getCurrentPrice());
+        BigDecimal totalPrice = coinPrice.multiply(orderItem.getQuantity());
 
         Order order = Order.builder()
                 .user(user)
@@ -43,12 +41,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public Order getOrderById(Long orderId){
-
+    public Order getOrderById(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() ->
                         new OrderNotFoundException(
-                                "order not found with id:" + orderId
+                                "Order not found with id: " + orderId
                         )
                 );
     }
@@ -57,10 +54,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public List<Order> getAllOrderOfUser(Long userId, OrderType orderType, String assetSymbol) {
         boolean hasOrderType = orderType != null;
-
-        boolean hasAssetSymbol =
-                assetSymbol != null &&
-                        !assetSymbol.isBlank();
+        boolean hasAssetSymbol = assetSymbol != null && !assetSymbol.isBlank();
 
         if (hasOrderType && hasAssetSymbol) {
             return orderRepository
@@ -87,60 +81,46 @@ public class OrderServiceImpl implements OrderService {
                     );
         }
 
-        return orderRepository
-                .findByUserIdOrderByTimestampDesc(userId);
+        return orderRepository.findByUserIdOrderByTimestampDesc(userId);
     }
 
-
-
     @Transactional
-    public Order buyAssets(Coin coin, BigDecimal quantity, User user){
-        BigDecimal buyPrice =
-                coin.getCurrentPrice();
+    public Order buyAssets(Coin coin, BigDecimal quantity, User user) {
+        BigDecimal buyPrice = BigDecimal.valueOf(coin.getCurrentPrice());
 
-        OrderItem orderItem =
-                createOrderItem(
-                        coin,
-                        quantity,
-                        buyPrice,
-                        null
-                );
+        OrderItem orderItem = createOrderItem(
+                coin,
+                quantity,
+                buyPrice,
+                null
+        );
 
-        Order order =
-                createOrder(
-                        user,
-                        orderItem,
-                        OrderType.BUY
-                );
-
-        /*
-         * BUY:
-         * User wallet -> exchange
-         */
-        walletService.payOrder(
-                order,
-                user
+        Order order = createOrder(
+                user,
+                orderItem,
+                OrderType.BUY
         );
 
         /*
-         * Update user's crypto asset.
+         * BUY: User wallet -> exchange
          */
-        Asset existingAsset =
-                assetService.findAssetByUserIdAndCoinId(
-                        user.getId(),
-                        coin.getId()
-                );
+        walletService.payOrder(order, user);
+
+        /*
+         * Update user's crypto asset
+         */
+        Asset existingAsset = assetService.findAssetByUserIdAndCoinId(
+                user.getId(),
+                coin.getId()
+        );
 
         if (existingAsset == null) {
-
             assetService.createAsset(
                     user,
                     coin,
                     quantity
             );
-
         } else {
-
             assetService.updateAsset(
                     existingAsset.getId(),
                     quantity
@@ -148,161 +128,97 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(OrderStatus.FILLED);
-
         return orderRepository.save(order);
     }
 
     @Transactional
-    public Order sellAssets(
-            Coin coin,
-            BigDecimal quantity,
-            User user)  {
-
-        Asset asset =
-                assetService.findAssetByUserIdAndCoinId(
-                        user.getId(),
-                        coin.getId()
-                );
+    public Order sellAssets(Coin coin, BigDecimal quantity, User user) {
+        Asset asset = assetService.findAssetByUserIdAndCoinId(
+                user.getId(),
+                coin.getId()
+        );
 
         if (asset == null) {
-            throw new InvalidOrderException(
-                    "You do not own this asset"
-            );
+            throw new InvalidOrderException("You do not own this asset");
         }
 
         if (asset.getQuantity().compareTo(quantity) < 0) {
-            throw new InvalidOrderException(
-                    "Insufficient asset quantity"
-            );
+            throw new InvalidOrderException("Insufficient asset quantity");
         }
 
-        BigDecimal sellPrice =
-                coin.getCurrentPrice();
+        BigDecimal sellPrice = BigDecimal.valueOf(coin.getCurrentPrice());
+        BigDecimal buyPrice = asset.getBuyPrice();
 
-        BigDecimal buyPrice =
-                asset.getBuyPrice();
-
-        OrderItem orderItem =
-                createOrderItem(
-                        coin,
-                        quantity,
-                        buyPrice,
-                        sellPrice
-                );
-
-        Order order =
-                createOrder(
-                        user,
-                        orderItem,
-                        OrderType.SELL
-                );
-
-
-        /*
-         * SELL:
-         * Crypto asset -> exchange
-         * Money -> user's wallet
-         */
-        walletService.payOrder(
-                order,
-                user
+        OrderItem orderItem = createOrderItem(
+                coin,
+                quantity,
+                buyPrice,
+                sellPrice
         );
 
-        Asset updatedAsset =
-                assetService.updateAsset(
-                        asset.getId(),
-                        quantity.negate()
-                );
+        Order order = createOrder(
+                user,
+                orderItem,
+                OrderType.SELL
+        );
 
         /*
-         * Delete the asset only when
-         * quantity becomes exactly zero.
+         * SELL: Crypto asset -> exchange; Money -> user's wallet
          */
-        if (updatedAsset.getQuantity().signum() == 0) {
+        walletService.payOrder(order, user);
 
-            assetService.deleteAsset(
-                    updatedAsset.getId()
-            );
+        Asset updatedAsset = assetService.updateAsset(
+                asset.getId(),
+                quantity.negate()
+        );
+
+        if (updatedAsset.getQuantity().signum() == 0) {
+            assetService.deleteAsset(updatedAsset.getId());
         }
 
         order.setStatus(OrderStatus.FILLED);
-
         return orderRepository.save(order);
     }
 
     @Transactional
-    public Order processOrder(
-            Coin coin,
-            BigDecimal quantity,
-            OrderType orderType,
-            User user) {
-
+    public Order processOrder(Coin coin, BigDecimal quantity, OrderType orderType, User user) {
         validateOrder(coin, quantity, orderType, user);
 
         return switch (orderType) {
-
-            case BUY -> buyAssets(
-                    coin,
-                    quantity,
-                    user
-            );
-
-            case SELL -> sellAssets(
-                    coin,
-                    quantity,
-                    user
-            );
+            case BUY -> buyAssets(coin, quantity, user);
+            case SELL -> sellAssets(coin, quantity, user);
         };
     }
 
-        private OrderItem createOrderItem(Coin coin, BigDecimal quantity, BigDecimal buyPrice, BigDecimal sellPrice) {
-            return OrderItem.builder()
-                    .coin(coin)
-                    .quantity(quantity)
-                    .buyPrice(buyPrice)
-                    .sellPrice(sellPrice)
-                    .build();
-        }
+    private OrderItem createOrderItem(Coin coin, BigDecimal quantity, BigDecimal buyPrice, BigDecimal sellPrice) {
+        return OrderItem.builder()
+                .coin(coin)
+                .quantity(quantity)
+                .buyPrice(buyPrice)
+                .sellPrice(sellPrice)
+                .build();
+    }
 
-    private void validateOrder(
-            Coin coin,
-            BigDecimal quantity,
-            OrderType orderType,
-            User user) {
-
+    private void validateOrder(Coin coin, BigDecimal quantity, OrderType orderType, User user) {
         if (user == null) {
-            throw new InvalidOrderException(
-                    "User is required"
-            );
+            throw new InvalidOrderException("User is required");
         }
 
         if (coin == null) {
-            throw new InvalidOrderException(
-                    "Coin is required"
-            );
+            throw new InvalidOrderException("Coin is required");
         }
 
-        if (quantity == null ||
-                quantity.signum() <= 0) {
-
-            throw new InvalidOrderException(
-                    "Quantity must be greater than zero"
-            );
+        if (quantity == null || quantity.signum() <= 0) {
+            throw new InvalidOrderException("Quantity must be greater than zero");
         }
 
         if (orderType == null) {
-            throw new InvalidOrderException(
-                    "Order type is required"
-            );
+            throw new InvalidOrderException("Order type is required");
         }
 
-        if (coin.getCurrentPrice() == null ||
-                coin.getCurrentPrice().signum() <= 0) {
-
-            throw new InvalidOrderException(
-                    "Coin price is not available"
-            );
+        // Validate double price on primitive type
+        if (coin.getCurrentPrice() <= 0) {
+            throw new InvalidOrderException("Coin price is not available");
         }
     }
-
 }

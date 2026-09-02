@@ -14,58 +14,50 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class AssetServiceImpl implements AssetService{
+public class AssetServiceImpl implements AssetService {
 
     private final AssetRepository assetRepository;
 
     @Override
+    @Transactional
     public Asset createAsset(User user,
                              Coin coin,
                              BigDecimal quantity) {
 
         if (user == null) {
-            throw new IllegalArgumentException(
-                    "User cannot be null"
-            );
+            throw new IllegalArgumentException("User cannot be null");
         }
 
-
-        if (quantity == null ||
-                quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(
-                    "Quantity must be greater than zero"
-            );
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero");
         }
 
-        if (coin.getCurrentPrice() == null) {
-            throw new IllegalArgumentException(
-                    "Coin current price is not available"
-            );
+        // Fixed: Primitive double cannot be compared to null
+        if (coin == null || coin.getCurrentPrice() <= 0) {
+            throw new IllegalArgumentException("Coin current price is not available");
         }
 
-        Asset existingAsset =
-                assetRepository
-                        .findByUserIdAndCoinId(
-                        user.getId(),
-                        coin.getId()
-                ).orElse(null);
+        Asset existingAsset = assetRepository
+                .findByUserIdAndCoinId(user.getId(), coin.getId())
+                .orElse(null);
 
         if (existingAsset != null) {
-            existingAsset.setQuantity(
-                    existingAsset.getQuantity().add(quantity)
-            );
-
+            existingAsset.setQuantity(existingAsset.getQuantity().add(quantity));
             return assetRepository.save(existingAsset);
         }
+
         Asset asset = new Asset();
         asset.setUser(user);
         asset.setCoin(coin);
         asset.setQuantity(quantity);
-        asset.setBuyPrice(coin.getCurrentPrice());
+        // Fixed: Convert primitive double to BigDecimal for Asset.buyPrice
+        asset.setBuyPrice(BigDecimal.valueOf(coin.getCurrentPrice()));
+
         return assetRepository.save(asset);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Asset getAssetById(Long assetId) {
         return assetRepository.findById(assetId)
                 .orElseThrow(() ->
@@ -73,10 +65,10 @@ public class AssetServiceImpl implements AssetService{
                                 "Asset not found with id: " + assetId
                         )
                 );
-
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Asset getAssetByUserIdAndId(Long userId, Long assetId) {
         return assetRepository
                 .findByIdAndUserId(assetId, userId)
@@ -88,29 +80,24 @@ public class AssetServiceImpl implements AssetService{
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Asset> getUserAssets(Long userId) {
         return assetRepository.findByUserId(userId);
     }
 
     @Transactional
     @Override
-    public Asset updateAsset(Long assetId,
-                             BigDecimal quantity){
+    public Asset updateAsset(Long assetId, BigDecimal quantity) {
         if (quantity == null) {
-            throw new IllegalArgumentException(
-                    "Quantity cannot be null"
-            );
+            throw new IllegalArgumentException("Quantity cannot be null");
         }
 
         Asset asset = getAssetById(assetId);
 
-        BigDecimal updatedQuantity =
-                asset.getQuantity().add(quantity);
+        BigDecimal updatedQuantity = asset.getQuantity().add(quantity);
 
         if (updatedQuantity.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException(
-                    "Asset quantity cannot be negative"
-            );
+            throw new IllegalArgumentException("Asset quantity cannot be negative");
         }
 
         asset.setQuantity(updatedQuantity);
@@ -119,6 +106,7 @@ public class AssetServiceImpl implements AssetService{
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Asset findAssetByUserIdAndCoinId(Long userId, String coinId) {
         return assetRepository
                 .findByUserIdAndCoinId(userId, coinId)

@@ -1,6 +1,7 @@
 package com.cryptotrading.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -8,70 +9,86 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-
 
 @Entity
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Coin {
 
     @Id
-    private String  id;
+    @JsonProperty("id")
+    private String id;
 
-    @Column(nullable = false)
+    @JsonProperty("symbol")
     private String symbol;
 
-    @Column(nullable = false)
+    @JsonProperty("name")
     private String name;
 
+    @JsonProperty("image")
+    @Column(length = 1000)
     private String image;
 
-    private BigDecimal currentPrice;
+    @JsonProperty("current_price")
+    private Double currentPrice;
 
+    @JsonProperty("market_cap")
+    private Long marketCap;
 
-    private BigDecimal marketCap;
-
+    @JsonProperty("market_cap_rank")
     private Long marketCapRank;
 
-    private BigDecimal fullyDilutedValuation;
+    @JsonProperty("total_volume")
+    private Long totalVolume;
 
-    private BigDecimal totalVolume;
+    @JsonProperty("high_24h")
+    private Double high24h;
 
-    private BigDecimal high24h;
+    @JsonProperty("low_24h")
+    private Double low24h;
 
-    private BigDecimal low24h;
+    @JsonProperty("price_change_24h")
+    private Double priceChange24h;
 
-    private BigDecimal priceChange24h;
+    @JsonProperty("price_change_percentage_24h")
+    private Double priceChangePercentage24h;
 
-    private BigDecimal priceChangePercentage24h;
+    @JsonProperty("market_cap_change_24h")
+    private Double marketCapChange24h;
 
-    private BigDecimal marketCapChange24h;
+    @JsonProperty("market_cap_change_percentage_24h")
+    private Double marketCapChangePercentage24h;
 
-    private BigDecimal marketCapChangePercentage24h;
+    @JsonProperty("circulating_supply")
+    private Double circulatingSupply;
 
-    private BigDecimal circulatingSupply;
+    @JsonProperty("total_supply")
+    private Double totalSupply;
 
-    private BigDecimal totalSupply;
+    @JsonProperty("max_supply")
+    private Double maxSupply;
 
-    private BigDecimal maxSupply;
+    @JsonProperty("ath")
+    private Double ath;
 
-    private BigDecimal ath;
+    @JsonProperty("ath_change_percentage")
+    private Double athChangePercentage;
 
-    private BigDecimal athChangePercentage;
-
+    @JsonProperty("ath_date")
     private Instant athDate;
 
-    private BigDecimal atl;
+    @JsonProperty("atl")
+    private Double atl;
 
-    private BigDecimal atlChangePercentage;
+    @JsonProperty("atl_change_percentage")
+    private Double atlChangePercentage;
 
+    @JsonProperty("atl_date")
     private Instant atlDate;
 
-    @JsonIgnore
-    private String roi;
-
+    @JsonProperty("last_updated")
     private Instant lastUpdated;
 }
