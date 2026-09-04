@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 public class PaymentDetailsRequest {
 
     @NotBlank(message = "Account number is required")
-    @Size(min = 9, max = 18, message = "Invalid account number")
+    @Size(min = 9, max = 30, message = "Invalid account number length")
     private String accountNumber;
 
     @NotBlank(message = "Account holder name is required")
@@ -22,8 +22,8 @@ public class PaymentDetailsRequest {
 
     @NotBlank(message = "IFSC is required")
     @Pattern(
-            regexp = "^[A-Z]{4}0[A-Z0-9]{6}$",
-            message = "Invalid IFSC code"
+            regexp = "(?i)^[A-Z]{4}0[A-Z0-9]{6}$",
+            message = "Invalid IFSC code format (e.g., SBIN0001234)"
     )
     private String ifsc;
 

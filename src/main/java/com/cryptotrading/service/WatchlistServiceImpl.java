@@ -9,19 +9,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+
 @Service
 @RequiredArgsConstructor
-public class WatchlistServiceImpl implements WatchlistService{
+public class WatchlistServiceImpl implements WatchlistService {
 
     private final WatchlistRepository watchlistRepository;
 
     @Override
     @Transactional(readOnly = true)
-    public Watchlist findUserWatchlist(Long userId){
+    public Watchlist findUserWatchlist(Long userId) {
         if (userId == null) {
-            throw new IllegalArgumentException(
-                    "User ID cannot be null"
-            );
+            throw new IllegalArgumentException("User ID cannot be null");
         }
 
         return watchlistRepository.findByUserId(userId)
@@ -36,9 +36,7 @@ public class WatchlistServiceImpl implements WatchlistService{
     @Transactional
     public Watchlist createWatchlist(User user) {
         if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException(
-                    "Invalid user"
-            );
+            throw new IllegalArgumentException("Invalid user");
         }
 
         if (watchlistRepository.existsByUserId(user.getId())) {
@@ -47,6 +45,7 @@ public class WatchlistServiceImpl implements WatchlistService{
 
         Watchlist watchlist = Watchlist.builder()
                 .user(user)
+                .coins(new ArrayList<>()) // Explicitly initialize collection
                 .build();
 
         return watchlistRepository.save(watchlist);
@@ -56,9 +55,7 @@ public class WatchlistServiceImpl implements WatchlistService{
     @Transactional(readOnly = true)
     public Watchlist findById(Long id) {
         if (id == null) {
-            throw new IllegalArgumentException(
-                    "Watchlist ID cannot be null"
-            );
+            throw new IllegalArgumentException("Watchlist ID cannot be null");
         }
 
         return watchlistRepository.findById(id)
@@ -71,17 +68,13 @@ public class WatchlistServiceImpl implements WatchlistService{
 
     @Override
     @Transactional
-    public Watchlist toggleCoin(Coin coin, User user){
+    public Watchlist toggleCoin(Coin coin, User user) {
         if (coin == null || coin.getId() == null) {
-            throw new IllegalArgumentException(
-                    "Invalid coin"
-            );
+            throw new IllegalArgumentException("Invalid coin");
         }
 
         if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException(
-                    "Invalid user"
-            );
+            throw new IllegalArgumentException("Invalid user");
         }
 
         Watchlist watchlist;
@@ -92,8 +85,17 @@ public class WatchlistServiceImpl implements WatchlistService{
             watchlist = createWatchlist(user);
         }
 
-        if (watchlist.getCoins().contains(coin)) {
-            watchlist.getCoins().remove(coin);
+        // Defensive guard against null collections from Lombok @Builder
+        if (watchlist.getCoins() == null) {
+            watchlist.setCoins(new ArrayList<>());
+        }
+
+        // Matches by ID so entity proxy/reference differences don't break removal
+        boolean exists = watchlist.getCoins().stream()
+                .anyMatch(c -> c.getId() != null && c.getId().equals(coin.getId()));
+
+        if (exists) {
+            watchlist.getCoins().removeIf(c -> c.getId() != null && c.getId().equals(coin.getId()));
         } else {
             watchlist.getCoins().add(coin);
         }

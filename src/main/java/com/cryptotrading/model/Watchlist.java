@@ -1,5 +1,6 @@
 package com.cryptotrading.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +12,7 @@ import java.util.List;
 
 @Entity
 @Data
+@Table(name = "watchlist")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -20,18 +22,21 @@ public class Watchlist {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
             name = "user_id",
             nullable = false,
             unique = true
     )
+    @JsonIgnore // Prevents LazyInitializationException & circular recursion
     private User user;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @Builder.Default
     @JoinTable(
-            name = "watchlist_coins")
+            name = "watchlist_coins",
+            joinColumns = @JoinColumn(name = "watchlist_id"),
+            inverseJoinColumns = @JoinColumn(name = "coin_id")
+    )
     private List<Coin> coins = new ArrayList<>();
-
 }

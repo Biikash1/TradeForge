@@ -11,22 +11,31 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class PaymentDetailsServiceImpl implements PaymentDetailsService{
+public class PaymentDetailsServiceImpl implements PaymentDetailsService {
 
     private final PaymentDetailsRepository paymentDetailsRepository;
 
     @Override
     @Transactional
-    public PaymentDetails addPaymentDetails(
-                                           PaymentDetailsRequest request,
-                                            User user) {
-        PaymentDetails paymentDetails = PaymentDetails.builder()
-                .accountNumber(request.getAccountNumber().trim())
-                .accountHolderName(request.getAccountHolderName().trim())
-                .ifsc(request.getIfsc().trim().toUpperCase())
-                .bankName(request.getBankName().trim())
-                .user(user)
-                .build();
+    public PaymentDetails addPaymentDetails(PaymentDetailsRequest request, User user) {
+        if (user == null || user.getId() == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+
+        if (request == null) {
+            throw new IllegalArgumentException("Request body cannot be null");
+        }
+
+        // Upsert: Retrieve existing details or build a new record
+        PaymentDetails paymentDetails = paymentDetailsRepository.findByUserId(user.getId())
+                .orElseGet(() -> PaymentDetails.builder()
+                        .user(user)
+                        .build());
+
+        paymentDetails.setAccountNumber(request.getAccountNumber().trim());
+        paymentDetails.setAccountHolderName(request.getAccountHolderName().trim());
+        paymentDetails.setIfsc(request.getIfsc().trim().toUpperCase());
+        paymentDetails.setBankName(request.getBankName().trim());
 
         return paymentDetailsRepository.save(paymentDetails);
     }
@@ -34,11 +43,15 @@ public class PaymentDetailsServiceImpl implements PaymentDetailsService{
     @Override
     @Transactional(readOnly = true)
     public PaymentDetails getUsersPaymentDetails(User user) {
+        if (user == null || user.getId() == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+
         return paymentDetailsRepository
                 .findByUserId(user.getId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
-                                "Payment details not found"
+                                "Payment details not found for user: " + user.getId()
                         )
                 );
     }

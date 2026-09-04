@@ -93,128 +93,81 @@ public class PaymentServiceImpl implements PaymentService{
 
     @Override
     @Transactional
-    public boolean processRazorpayPayment(PaymentOrder paymentOrder,
-                                       String paymentId) {
-
+    public boolean processRazorpayPayment(PaymentOrder paymentOrder, String paymentId) {
         if (paymentOrder == null) {
-            throw new InvalidPaymentException(
-                    "Payment order cannot be null"
-            );
+            throw new InvalidPaymentException("Payment order cannot be null");
         }
 
         if (paymentId == null || paymentId.isBlank()) {
-            throw new InvalidPaymentException(
-                    "Payment ID is required"
-            );
+            throw new InvalidPaymentException("Payment ID is required");
         }
 
         if (paymentOrder.getStatus() == PaymentOrderStatus.SUCCESS) {
             return true;
         }
 
-        if (paymentOrder.getStatus() != PaymentOrderStatus.PENDING) {
-            return false;
-        }
-
         if (paymentOrder.getPaymentMethod() != PaymentMethod.RAZORPAY) {
-            throw new InvalidPaymentException(
-                    "Payment order is not a Razorpay order"
-            );
+            throw new InvalidPaymentException("Payment order is not a Razorpay order");
         }
 
         try {
-
-            RazorpayClient razorpayClient =
-                    new RazorpayClient(
-                            razorpayKeyId,
-                            razorpayKeySecret
-                    );
-
-            Payment payment =
-                    razorpayClient.payments.fetch(paymentId);
+            RazorpayClient razorpayClient = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+            Payment payment = razorpayClient.payments.fetch(paymentId);
 
             String providerStatus = payment.get("status");
-            Integer providerAmount = payment.get("amount");
+
+            // 1. Safe extraction of amount (avoids ClassCastException between Long and Integer)
+            Object rawAmount = payment.get("amount");
+            long providerAmountInPaise = (rawAmount instanceof Number)
+                    ? ((Number) rawAmount).longValue()
+                    : Long.parseLong(rawAmount.toString());
+
             String providerCurrency = payment.get("currency");
 
-            long expectedAmountInPaise =
-                    paymentOrder.getAmount()
-                            .movePointRight(2)
-                            .longValueExact();
+            long expectedAmountInPaise = paymentOrder.getAmount()
+                    .movePointRight(2)
+                    .longValueExact();
 
-            // Verify amount
-            if (providerAmount == null
-                    || providerAmount.longValue()
-                    != expectedAmountInPaise) {
-
+            // 2. Verify amount
+            if (providerAmountInPaise != expectedAmountInPaise) {
                 markPaymentFailed(paymentOrder, paymentId);
-
-                log.warn(
-                        "Razorpay amount mismatch. orderId={}, expected={}, actual={}",
-                        paymentOrder.getId(),
-                        expectedAmountInPaise,
-                        providerAmount
-                );
-
-                throw new PaymentVerificationException(
-                        "Razorpay payment amount verification failed"
-                );
+                log.warn("Razorpay amount mismatch: expected={}, actual={}", expectedAmountInPaise, providerAmountInPaise);
+                throw new PaymentVerificationException("Razorpay payment amount verification failed");
             }
 
-            // Verify currency
+            // 3. Verify currency
             if (!"INR".equalsIgnoreCase(providerCurrency)) {
-
                 markPaymentFailed(paymentOrder, paymentId);
-
-                throw new PaymentVerificationException(
-                        "Razorpay payment currency verification failed"
-                );
+                throw new PaymentVerificationException("Razorpay payment currency verification failed");
             }
 
-            // Verify payment status
+            // 4. If status is 'authorized', capture it immediately
+            if ("authorized".equalsIgnoreCase(providerStatus)) {
+                JSONObject captureRequest = new JSONObject();
+                captureRequest.put("amount", expectedAmountInPaise);
+                captureRequest.put("currency", "INR");
+                payment = razorpayClient.payments.capture(paymentId, captureRequest);
+                providerStatus = payment.get("status");
+            }
+
+            // 5. Verify payment status is captured
             if (!"captured".equalsIgnoreCase(providerStatus)) {
-
                 markPaymentFailed(paymentOrder, paymentId);
-
-                throw new PaymentVerificationException(
-                        "Razorpay payment was not captured"
-                );
+                throw new PaymentVerificationException("Razorpay payment could not be captured. Status: " + providerStatus);
             }
 
-            paymentOrder.setStatus(
-                    PaymentOrderStatus.SUCCESS
-            );
-
-            paymentOrder.setProviderPaymentId(
-                    paymentId
-            );
-
+            paymentOrder.setStatus(PaymentOrderStatus.SUCCESS);
+            paymentOrder.setProviderPaymentId(paymentId);
             paymentOrderRepository.save(paymentOrder);
 
-            log.info(
-                    "Razorpay payment successful. orderId={}, paymentId={}",
-                    paymentOrder.getId(),
-                    paymentId
-            );
-
+            log.info("Razorpay payment successful. orderId={}, paymentId={}", paymentOrder.getId(), paymentId);
             return true;
-        } catch (RazorpayException e) {
 
-            log.error(
-                    "Razorpay verification failed. orderId={}, paymentId={}",
-                    paymentOrder.getId(),
-                    paymentId,
-                    e
-            );
-
-            throw new PaymentVerificationException(
-                    "Unable to verify Razorpay payment",
-                    e
-            );
+        } catch (Exception e) {
+            log.error("Razorpay verification failed. orderId={}, paymentId={}", paymentOrder.getId(), paymentId, e);
+            throw new PaymentVerificationException("Unable to verify Razorpay payment: " + e.getMessage(), e);
         }
-
     }
-
     @Override
     public boolean processStripePayment(PaymentOrder paymentOrder, String sessionId) {
         if (paymentOrder == null) {

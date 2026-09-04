@@ -27,7 +27,7 @@ public class WalletServiceImpl implements WalletService {
     @Transactional
     public Wallet getUserWallet(User user) {
         if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException("Invalid user");
+            throw new IllegalArgumentException("User cannot be null");
         }
 
         return walletRepository.findByUserId(user.getId())
@@ -46,7 +46,7 @@ public class WalletServiceImpl implements WalletService {
     public Wallet addBalance(Wallet wallet, BigDecimal amount) {
         validateAmount(amount);
 
-        if (wallet == null) {
+        if (wallet == null || wallet.getId() == null) {
             throw new IllegalArgumentException("Wallet cannot be null");
         }
 
@@ -59,7 +59,7 @@ public class WalletServiceImpl implements WalletService {
                 .wallet(savedWallet)
                 .type(WalletTransactionType.ADD_MONEY)
                 .amount(amount)
-                .purpose("Wallet balance deposit")
+                .purpose("Wallet top-up")
                 .transferId(UUID.randomUUID().toString())
                 .date(Instant.now())
                 .build();
@@ -69,26 +69,26 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Wallet findWalletById(Long id) {
         if (id == null) {
             throw new IllegalArgumentException("Wallet ID cannot be null");
         }
 
         return walletRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found with id: " + id));
     }
 
-    @Override
     @Transactional
-    public Wallet transfer(User sender, Wallet receiverWallet, BigDecimal amount) {
+    public Wallet transfer(User sender, Wallet receiverWallet, BigDecimal amount, String purpose) {
         validateAmount(amount);
 
-        if (sender == null) {
+        if (sender == null || sender.getId() == null) {
             throw new IllegalArgumentException("Sender cannot be null");
         }
 
-        if (receiverWallet == null) {
-            throw new IllegalArgumentException("Receiver wallet cannot be null");
+        if (receiverWallet == null || receiverWallet.getId() == null) {
+            throw new IllegalArgumentException("Receiver wallet cannot be null or empty");
         }
 
         Wallet senderWallet = getUserWallet(sender);
@@ -100,7 +100,7 @@ public class WalletServiceImpl implements WalletService {
         BigDecimal senderBalance = getBalance(senderWallet);
 
         if (senderBalance.compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient wallet balance");
+            throw new IllegalStateException("Insufficient wallet balance. Current balance: " + senderBalance);
         }
 
         senderWallet.setBalance(senderBalance.subtract(amount));
@@ -112,24 +112,25 @@ public class WalletServiceImpl implements WalletService {
         walletRepository.save(receiverWallet);
 
         String transferId = UUID.randomUUID().toString();
+        String note = (purpose != null && !purpose.isBlank()) ? purpose.trim() : "Wallet Transfer";
 
-        // 1. Sender Debit Audit
+        // 1. Sender Debit Record
         WalletTransaction senderTx = WalletTransaction.builder()
                 .wallet(senderWallet)
                 .type(WalletTransactionType.WALLET_TRANSFER)
                 .amount(amount)
-                .purpose("Transfer sent to Wallet #" + receiverWallet.getId())
+                .purpose("Sent to Wallet #" + receiverWallet.getId() + (note.equals("Wallet Transfer") ? "" : " - " + note))
                 .transferId(transferId)
                 .date(Instant.now())
                 .build();
         walletTransactionRepository.save(senderTx);
 
-        // 2. Receiver Credit Audit
+        // 2. Receiver Credit Record
         WalletTransaction receiverTx = WalletTransaction.builder()
                 .wallet(receiverWallet)
                 .type(WalletTransactionType.WALLET_TRANSFER)
                 .amount(amount)
-                .purpose("Transfer received from Wallet #" + senderWallet.getId())
+                .purpose("Received from Wallet #" + senderWallet.getId() + (note.equals("Wallet Transfer") ? "" : " - " + note))
                 .transferId(transferId)
                 .date(Instant.now())
                 .build();
@@ -141,11 +142,11 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public Wallet payOrder(Order order, User user) {
-        if (order == null) {
+        if (order == null || order.getId() == null) {
             throw new IllegalArgumentException("Order cannot be null");
         }
 
-        if (user == null) {
+        if (user == null || user.getId() == null) {
             throw new IllegalArgumentException("User cannot be null");
         }
 
@@ -157,7 +158,7 @@ public class WalletServiceImpl implements WalletService {
 
         if (order.getOrderType() == OrderType.BUY) {
             if (currentBalance.compareTo(orderPrice) < 0) {
-                throw new IllegalStateException("Insufficient funds for this transaction");
+                throw new IllegalStateException("Insufficient funds for this trade");
             }
 
             wallet.setBalance(currentBalance.subtract(orderPrice));
@@ -197,18 +198,14 @@ public class WalletServiceImpl implements WalletService {
     public Wallet withdraw(Wallet wallet, BigDecimal amount) {
         validateAmount(amount);
 
-        if (wallet == null) {
+        if (wallet == null || wallet.getId() == null) {
             throw new IllegalArgumentException("Wallet cannot be null");
         }
 
-        BigDecimal currentBalance = wallet.getBalance();
-
-        if (currentBalance == null) {
-            currentBalance = BigDecimal.ZERO;
-        }
+        BigDecimal currentBalance = getBalance(wallet);
 
         if (currentBalance.compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient wallet balance");
+            throw new IllegalStateException("Insufficient wallet balance for withdrawal");
         }
 
         wallet.setBalance(currentBalance.subtract(amount));

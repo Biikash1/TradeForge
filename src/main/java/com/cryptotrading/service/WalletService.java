@@ -16,7 +16,7 @@ public interface WalletService {
 
     Wallet findWalletById(Long id);
 
-    Wallet transfer(User sender, Wallet receiverWallet, BigDecimal amount);
+    Wallet transfer(User sender, Wallet receiverWallet, BigDecimal amount, String purpose);
 
     Wallet payOrder(Order order, User user) ;
 

@@ -7,7 +7,6 @@ import com.cryptotrading.service.PaymentDetailsService;
 import com.cryptotrading.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class PaymentDetailsController {
 
-    private final  UserService userService;
+    private final UserService userService;
     private final PaymentDetailsService paymentDetailsService;
 
     @PostMapping
@@ -25,14 +24,9 @@ public class PaymentDetailsController {
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
+        PaymentDetails paymentDetails = paymentDetailsService.addPaymentDetails(request, user);
 
-        PaymentDetails paymentDetails = paymentDetailsService.addPaymentDetails(
-                request,
-                user
-        );
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(paymentDetails);
-
+        return ResponseEntity.ok(paymentDetails);
     }
 
     @GetMapping
@@ -40,12 +34,8 @@ public class PaymentDetailsController {
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
-
-        PaymentDetails paymentDetails = paymentDetailsService
-                .getUsersPaymentDetails(user);
+        PaymentDetails paymentDetails = paymentDetailsService.getUsersPaymentDetails(user);
 
         return ResponseEntity.ok(paymentDetails);
-
     }
-
 }

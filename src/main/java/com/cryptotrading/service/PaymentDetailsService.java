@@ -6,9 +6,7 @@ import com.cryptotrading.model.User;
 
 public interface PaymentDetailsService {
 
-    PaymentDetails addPaymentDetails(
-            PaymentDetailsRequest request,
-            User user);
+    PaymentDetails addPaymentDetails(PaymentDetailsRequest request, User user);
 
-     PaymentDetails getUsersPaymentDetails(User user);
+    PaymentDetails getUsersPaymentDetails(User user);
 }
