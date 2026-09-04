@@ -1,6 +1,7 @@
 package com.cryptotrading.model;
 
 import com.cryptotrading.domain.WalletTransactionType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,6 +28,7 @@ public class WalletTransaction {
             name = "wallet_id",
             nullable = false
     )
+    @JsonIgnore
     private Wallet wallet;
 
     @Enumerated(EnumType.STRING)
@@ -36,7 +38,7 @@ public class WalletTransaction {
     @Column(nullable = false)
     private Instant date;
 
-    @Column(name = "transfer_id", unique = true)
+    @Column(name = "transfer_id")
     private String transferId;
 
     @Column(length = 255)
