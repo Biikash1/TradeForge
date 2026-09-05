@@ -1,13 +1,14 @@
 package com.cryptotrading.service;
 
 import com.cryptotrading.dto.PaymentDetailsRequest;
-import com.cryptotrading.exception.ResourceNotFoundException;
 import com.cryptotrading.model.PaymentDetails;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.PaymentDetailsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,12 +23,9 @@ public class PaymentDetailsServiceImpl implements PaymentDetailsService {
             throw new IllegalArgumentException("User cannot be null");
         }
 
-        if (request == null) {
-            throw new IllegalArgumentException("Request body cannot be null");
-        }
-
-        // Upsert: Retrieve existing details or build a new record
-        PaymentDetails paymentDetails = paymentDetailsRepository.findByUserId(user.getId())
+        // Check if this specific account number already exists for this user
+        PaymentDetails paymentDetails = paymentDetailsRepository
+                .findByUserIdAndAccountNumber(user.getId(), request.getAccountNumber().trim())
                 .orElseGet(() -> PaymentDetails.builder()
                         .user(user)
                         .build());
@@ -42,17 +40,23 @@ public class PaymentDetailsServiceImpl implements PaymentDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentDetails getUsersPaymentDetails(User user) {
+    public List<PaymentDetails> getUsersPaymentDetails(User user) {
         if (user == null || user.getId() == null) {
-            throw new IllegalArgumentException("User cannot be null");
+            return List.of();
+        }
+        return paymentDetailsRepository.findByUserId(user.getId());
+    }
+
+    @Override
+    @Transactional
+    public void deletePaymentDetails(Long id, User user) {
+        PaymentDetails details = paymentDetailsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Bank details not found"));
+
+        if (!details.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("Unauthorized action");
         }
 
-        return paymentDetailsRepository
-                .findByUserId(user.getId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment details not found for user: " + user.getId()
-                        )
-                );
+        paymentDetailsRepository.delete(details);
     }
 }

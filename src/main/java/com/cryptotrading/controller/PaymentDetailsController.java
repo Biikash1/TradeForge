@@ -7,8 +7,11 @@ import com.cryptotrading.service.PaymentDetailsService;
 import com.cryptotrading.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/payment-details")
@@ -25,17 +28,25 @@ public class PaymentDetailsController {
 
         User user = userService.findUserProfileByJwt(jwt);
         PaymentDetails paymentDetails = paymentDetailsService.addPaymentDetails(request, user);
-
-        return ResponseEntity.ok(paymentDetails);
+        return ResponseEntity.status(HttpStatus.CREATED).body(paymentDetails);
     }
 
     @GetMapping
-    public ResponseEntity<PaymentDetails> getUsersPaymentDetails(
+    public ResponseEntity<List<PaymentDetails>> getUsersPaymentDetails(
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
-        PaymentDetails paymentDetails = paymentDetailsService.getUsersPaymentDetails(user);
+        List<PaymentDetails> paymentDetailsList = paymentDetailsService.getUsersPaymentDetails(user);
+        return ResponseEntity.ok(paymentDetailsList);
+    }
 
-        return ResponseEntity.ok(paymentDetails);
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deletePaymentDetails(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String jwt) {
+
+        User user = userService.findUserProfileByJwt(jwt);
+        paymentDetailsService.deletePaymentDetails(id, user);
+        return ResponseEntity.ok("Bank account removed successfully");
     }
 }
