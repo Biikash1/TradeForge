@@ -3,7 +3,6 @@ package com.cryptotrading.service;
 import com.cryptotrading.model.Coin;
 import tools.jackson.databind.JsonNode;
 
-
 import java.util.List;
 
 public interface CoinService {
