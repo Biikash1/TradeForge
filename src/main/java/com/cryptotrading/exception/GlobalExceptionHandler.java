@@ -12,9 +12,7 @@ import java.time.Instant;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(CoinApiException.class)
-    public ResponseEntity<ErrorResponse> handleCoinApiException(
-            CoinApiException ex) {
-
+    public ResponseEntity<ErrorResponse> handleCoinApiException(CoinApiException ex) {
         return buildResponse(
                 HttpStatus.BAD_GATEWAY,
                 "Coin API Error",
@@ -22,10 +20,18 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
-            IllegalArgumentException ex) {
+    @ExceptionHandler(GeminiApiException.class)
+    public ResponseEntity<ErrorResponse> handleGeminiApiException(GeminiApiException ex) {
+        return buildResponse(
+                HttpStatus.BAD_GATEWAY,
+                "Gemini API Error",
+                ex.getMessage()
+        );
+    }
 
+    // Single unified handler for IllegalArgumentException
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Bad Request",
@@ -34,9 +40,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(VerificationCodeNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleVerificationCodeNotFound(
-            VerificationCodeNotFoundException ex) {
-
+    public ResponseEntity<ErrorResponse> handleVerificationCodeNotFound(VerificationCodeNotFoundException ex) {
         return buildResponse(
                 HttpStatus.NOT_FOUND,
                 "Verification Code Not Found",
@@ -45,9 +49,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InvalidVerificationCodeException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidVerificationCode(
-            InvalidVerificationCodeException ex) {
-
+    public ResponseEntity<ErrorResponse> handleInvalidVerificationCode(InvalidVerificationCodeException ex) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Invalid Verification Code",
@@ -56,9 +58,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(PaymentOrderNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handlePaymentOrderNotFound(
-            PaymentOrderNotFoundException ex) {
-
+    public ResponseEntity<ErrorResponse> handlePaymentOrderNotFound(PaymentOrderNotFoundException ex) {
         return buildResponse(
                 HttpStatus.NOT_FOUND,
                 "Payment Order Not Found",
@@ -67,9 +67,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationException(
-            MethodArgumentNotValidException ex) {
-
+    public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -85,9 +83,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(PaymentOwnershipException.class)
-    public ResponseEntity<ErrorResponse> handlePaymentOwnership(
-            PaymentOwnershipException ex) {
-
+    public ResponseEntity<ErrorResponse> handlePaymentOwnership(PaymentOwnershipException ex) {
         return buildResponse(
                 HttpStatus.FORBIDDEN,
                 "Payment Ownership Error",
@@ -96,9 +92,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(PaymentVerificationException.class)
-    public ResponseEntity<ErrorResponse> handlePaymentVerification(
-            PaymentVerificationException ex) {
-
+    public ResponseEntity<ErrorResponse> handlePaymentVerification(PaymentVerificationException ex) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Payment Verification Failed",
@@ -107,9 +101,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InvalidPaymentException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidPayment(
-            InvalidPaymentException ex) {
-
+    public ResponseEntity<ErrorResponse> handleInvalidPayment(InvalidPaymentException ex) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Invalid Payment",
@@ -118,9 +110,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneralException(
-            Exception ex) {
-
+    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Internal Server Error",
