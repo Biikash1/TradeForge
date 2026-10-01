@@ -1,349 +1,44 @@
-# 🚀 TradeForge
+# TradeForge ⚡
 
-> A full-stack crypto trading platform built with Java, Spring Boot, and React.
+[![Tech Stack: Java & Spring Boot](https://img.shields.io/badge/Backend-Spring%20Boot-6DB33F?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
+[![Tech Stack: React](https://img.shields.io/badge/Frontend-React-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
+[![Database: MySQL/PostgreSQL](https://img.shields.io/badge/Database-Relational-336791?style=flat-square&logo=database)](#)
+[![Security: JWT](https://img.shields.io/badge/Security-JWT%20%26%202FA-black?style=flat-square&logo=jsonwebtokens)](#)
 
-TradeForge enables users to buy, sell, and track cryptocurrencies in real time.
+> **TradeForge** is a full-stack algorithmic cryptocurrency trading and portfolio management platform. Engineered for scale, it enables users to execute trades, manage digital wallets, track real-time market data, and process secure fiat-to-crypto payments.
 
-## Database Design & Tables
+---
 
-### **📋Tables and Relationships**
+## 🚀 Core Features
 
-1. **👤 Users Table**
-    - `id` (Primary Key)
-    - `fullName`
-    - `email`
-    - `mobile`
-    - `password`
-    - `status`
-    - `isVerified`
-    - `twoFactorAuth_enabled`
-    - `twoFactorAuth_sendTo`
-    - `picture`
-    - `role`
+- **Real-Time Market Tracking:** Live cryptocurrency pricing, market cap rankings, and historical chart data integration.
+- **Order Execution Engine:** Support for buying, selling, and tracking complex order histories with transactional integrity.
+- **Double-Entry Wallet System:** Secure internal ledger for managing user balances, top-ups, and withdrawal processing.
+- **Institutional-Grade Security:** Stateless JWT authentication, BCrypt password hashing, and OTP-based Two-Factor Authentication (2FA).
+- **Multi-Gateway Payment Processing:** Idempotent fiat deposit processing via **Razorpay** and **Stripe** with automated wallet crediting.
 
-2. **🪙 Coins Table**
-    - `id` (Primary Key)
-    - `symbol`
-    - `name`
-    - `image`
-    - `current_price`
-    - `market_cap`
-    - `market_cap_rank`
-    - `fully_diluted_valuation`
-    - `total_volume`
-    - `high_24h`
-    - `low_24h`
-    - `price_change_24h`
-    - `price_change_percentage_24h`
-    - `market_cap_change_24h`
-    - `market_cap_change_percentage_24h`
-    - `circulating_supply`
-    - `total_supply`
-    - `max_supply`
-    - `ath`
-    - `ath_change_percentage`
-    - `ath_date`
-    - `atl`
-    - `atl_change_percentage`
-    - `atl_date`
-    - `roi`
-    - `last_updated`
+---
 
-3. **📦 Assets Table**
-    - `id` (Primary Key)
-    - `quantity`
-    - `buy_price`
-    - `coin_id` (Foreign Key → Coins)
-    - `user_id` (Foreign Key → Users)
+## 🛠️ Technology Stack
 
-4. **💸 Withdrawals Table**
-    - `id` (Primary Key)
-    - `status`
-    - `amount`
-    - `user_id` (Foreign Key → Users)
-    - `date`
+| Layer | Technologies |
+| :--- | :--- |
+| **Backend Core** | Java 17+, Spring Boot, Spring Data JPA, Hibernate |
+| **Frontend Terminal**| React, Redux (State Management), Tailwind CSS |
+| **Security** | Spring Security, JWT, BCrypt, OTP via Email/SMS |
+| **Database** | Relational Database (MySQL / PostgreSQL) |
+| **Payment Gateways** | Razorpay API, Stripe API |
 
-5. **⭐ Watchlist Table**
-    - `id` (Primary Key)
-    - `user_id` (Foreign Key → Users)
+---
 
-6. **🔗 Watchlist_Coins Table**
-    - `watchlist_id` (Foreign Key → Watchlists)
-    - `coin_id` (Foreign Key → Coins)
+## 🔐 Security & Authentication Architecture
 
-7. **💳 WalletTransactions Table**
-    - `id` (Primary Key)
-    - `wallet_id` (Foreign Key → Wallets)
-    - `type`
-    - `date`
-    - `transfer_id`
-    - `purpose`
-    - `amount`
-
-8. **👛 Wallets Table**
-    - `id` (Primary Key)
-    - `user_id` (Foreign Key → Users)
-    - `balance`
-
-9. **🔐 VerificationCodes Table**
-    - `id` (Primary Key)
-    - `otp`
-    - `user_id` (Foreign Key → Users)
-    - `email`
-    - `mobile`
-    - `verification_type`
-
-10. **📈 TradingHistories Table**
-    - `id` (Primary Key)
-    - `selling_price`
-    - `buying_price`
-    - `coin_id` (Foreign Key → Coins)
-    - `user_id` (Foreign Key → Users)
-
-11. **💰 PaymentOrders Table**
-    - `id` (Primary Key)
-    - `amount`
-    - `status`
-    - `payment_method`
-    - `user_id` (Foreign Key → Users)
-
-12. **🏦 PaymentDetails Table**
-    - `id` (Primary Key)
-    - `account_number`
-    - `account_holder_name`
-    - `ifsc`
-    - `bank_name`
-    - `user_id` (Foreign Key → Users)
-
-13. **🛒 Orders Table**
-    - `id` (Primary Key)
-    - `user_id` (Foreign Key → Users)
-    - `order_type`
-    - `price`
-    - `timestamp`
-    - `status`
-    - `order_item_id` (Foreign Key → OrderItems)
-
-14. **📦 OrderItems Table**
-    - `id` (Primary Key)
-    - `quantity`
-    - `coin_id` (Foreign Key → Coins)
-    - `buy_price`
-    - `sell_price`
-    - `order_id` (Foreign Key → Orders)
-
-15. **🔔 Notifications Table**
-    - `id` (Primary Key)
-    - `from_user_id` (Foreign Key → Users)
-    - `to_user_id` (Foreign Key → Users)
-    - `amount`
-    - `message`
-
-16. **📊 MarketChartData Table**
-    - `id` (Primary Key)
-    - `timestamp`
-    - `price`
-
-17. **🔑 ForgotPasswordTokens Table**
-    - `id` (Primary Key)
-    - `user_id` (Foreign Key → Users)
-    - `otp`
-    - `verification_type`
-    - `send_to`
-
-## 📊 ER Diagram
-
-```mermaid
-erDiagram
-
-    USERS {
-        bigint id PK
-        string fullName
-        string email
-        string mobile
-        string password
-        string status
-        boolean isVerified
-        boolean twoFactorAuth_enabled
-        string twoFactorAuth_sendTo
-        string picture
-        string role
-    }
-
-    COINS {
-        bigint id PK
-        string symbol
-        string name
-        string image
-        decimal current_price
-        decimal market_cap
-        int market_cap_rank
-        decimal total_volume
-        decimal high_24h
-        decimal low_24h
-        decimal price_change_24h
-        decimal circulating_supply
-        decimal total_supply
-        decimal max_supply
-        datetime last_updated
-    }
-
-    ASSETS {
-        bigint id PK
-        decimal quantity
-        decimal buy_price
-        bigint user_id FK
-        bigint coin_id FK
-    }
-
-    WALLETS {
-        bigint id PK
-        decimal balance
-        bigint user_id FK
-    }
-
-    WALLET_TRANSACTIONS {
-        bigint id PK
-        string type
-        decimal amount
-        string purpose
-        datetime date
-        string transfer_id
-        bigint wallet_id FK
-    }
-
-    WITHDRAWALS {
-        bigint id PK
-        decimal amount
-        string status
-        datetime date
-        bigint user_id FK
-    }
-
-    WATCHLISTS {
-        bigint id PK
-        bigint user_id FK
-    }
-
-    WATCHLIST_COINS {
-        bigint watchlist_id FK
-        bigint coin_id FK
-    }
-
-    VERIFICATION_CODES {
-        bigint id PK
-        string otp
-        string email
-        string mobile
-        string verification_type
-        bigint user_id FK
-    }
-
-    TRADING_HISTORIES {
-        bigint id PK
-        decimal buying_price
-        decimal selling_price
-        bigint coin_id FK
-        bigint user_id FK
-    }
-
-    PAYMENT_ORDERS {
-        bigint id PK
-        decimal amount
-        string status
-        string payment_method
-        bigint user_id FK
-    }
-
-    PAYMENT_DETAILS {
-        bigint id PK
-        string account_number
-        string account_holder_name
-        string ifsc
-        string bank_name
-        bigint user_id FK
-    }
-
-    ORDERS {
-        bigint id PK
-        string order_type
-        decimal price
-        string status
-        datetime timestamp
-        bigint user_id FK
-    }
-
-    ORDER_ITEMS {
-        bigint id PK
-        decimal quantity
-        decimal buy_price
-        decimal sell_price
-        bigint order_id FK
-        bigint coin_id FK
-    }
-
-    NOTIFICATIONS {
-        bigint id PK
-        decimal amount
-        string message
-        bigint from_user_id FK
-        bigint to_user_id FK
-    }
-
-    MARKET_CHART_DATA {
-        bigint id PK
-        datetime timestamp
-        decimal price
-    }
-
-    FORGOT_PASSWORD_TOKENS {
-        bigint id PK
-        string otp
-        string verification_type
-        string send_to
-        bigint user_id FK
-    }
-
-    USERS ||--|| WALLETS : owns
-    WALLETS ||--o{ WALLET_TRANSACTIONS : contains
-
-    USERS ||--o{ ASSETS : owns
-    COINS ||--o{ ASSETS : asset
-
-    USERS ||--o{ WITHDRAWALS : requests
-
-    USERS ||--|| WATCHLISTS : has
-    WATCHLISTS ||--o{ WATCHLIST_COINS : contains
-    COINS ||--o{ WATCHLIST_COINS : listed_in
-
-    USERS ||--o{ VERIFICATION_CODES : receives
-
-    USERS ||--o{ TRADING_HISTORIES : performs
-    COINS ||--o{ TRADING_HISTORIES : traded
-
-    USERS ||--o{ PAYMENT_ORDERS : creates
-    USERS ||--|| PAYMENT_DETAILS : owns
-
-    USERS ||--o{ ORDERS : places
-    ORDERS ||--|{ ORDER_ITEMS : contains
-    COINS ||--o{ ORDER_ITEMS : traded
-
-    USERS ||--o{ NOTIFICATIONS : sends
-    USERS ||--o{ NOTIFICATIONS : receives
-
-    USERS ||--o{ FORGOT_PASSWORD_TOKENS : receives
-```
-
-## 🔐 Authentication & JWT Architecture
-
-TradeForge uses **JWT-based stateless authentication** with **BCrypt password hashing** and optional **Two-Factor Authentication (2FA)**.
-
-### Authentication Flow
+TradeForge utilizes a highly secure, stateless authentication mechanism. The flow supports optional Two-Factor Authentication (2FA) before issuing the final JWT session token.
 
 ```text
                          ┌──────────────────────┐
-                         │       CLIENT         │
-                         │   Postman / React    │
+                         │        CLIENT        │
+                         │    Postman / React   │
                          └──────────┬───────────┘
                                     │
                   ┌─────────────────┴─────────────────┐
@@ -351,9 +46,9 @@ TradeForge uses **JWT-based stateless authentication** with **BCrypt password ha
              POST /auth/signup                  POST /auth/signin
                   │                                   │
                   ▼                                   ▼
-        ┌───────────────────┐              ┌───────────────────┐
-        │  AuthController   │              │  AuthController   │
-        └─────────┬─────────┘              └─────────┬─────────┘
+        ┌───────────────────┐               ┌───────────────────┐
+        │  AuthController   │               │  AuthController   │
+        └─────────┬─────────┘               └─────────┬─────────┘
                   │                                   │
                   ▼                                   ▼
         Validate RegisterRequest             Validate AuthRequest
@@ -365,25 +60,25 @@ TradeForge uses **JWT-based stateless authentication** with **BCrypt password ha
         BCrypt encode password               Verify BCrypt password
                   │                                   │
                   ▼                                   ▼
-        Save User to MySQL                       Find User
+        Save User to Database                      Find User
                   │                                   │
                   ▼                                   ▼
-        Create Authentication              Check 2FA enabled?
+        Create Authentication               Check 2FA enabled?
                   │                         ┌─────────┴─────────┐
                   │                         │                   │
-                  │                        YES                 NO
+                  │                        YES                  NO
                   │                         │                   │
                   │                         ▼                   ▼
-                  │                    Generate OTP        Generate JWT
+                  │                   Generate OTP         Generate JWT
                   │                         │                   │
-                  │                    Send OTP Email           │
+                  │                   Send OTP Email            │
                   │                         │                   │
-                  │                    Return Session           │
+                  │                   Return Session            │
                   │                         │                   │
-                  │                    Verify OTP               │
+                  │                   Verify OTP                │
                   │                         │                   │
-                  │                         ▼                   │
-                  │                    Generate JWT             │
+                  │                         ▼                   ▼
+                  │                   Generate JWT              │
                   │                         │                   │
                   └──────────────┬──────────┴───────────────────┘
                                  │
@@ -400,27 +95,14 @@ TradeForge uses **JWT-based stateless authentication** with **BCrypt password ha
                                   │
                                   ▼
                          ┌─────────────────┐
-                         │     CLIENT      │
-                         │   Store JWT     │
+                         │      CLIENT     │
+                         │    Store JWT    │
                          └─────────────────┘
-  ```
-                         
-## 💳 Production-Ready Payment Architecture
 
-TradeForge provides a secure and extensible payment architecture supporting
-multiple payment providers while maintaining a centralized internal
-`PaymentOrder` for transaction tracking and wallet processing.
+💳 Payment Processing Engine
+The platform implements a resilient, idempotent payment processing engine. It ensures that internal wallets are only credited upon successful webhook/API verification from the provider, preventing race conditions or duplicate credits.
 
-### Supported Payment Methods
-
-- **RAZORPAY**
-- **STRIPE**
-
-## Payment Flow
-   
-- **Payment Request → PaymentOrder → Provider Verification → Validation → Idempotency → Wallet Credit → Response**
-
-```mermaid
+Code snippet
 flowchart TD
 
     A["PAYMENT REQUEST"]
@@ -486,9 +168,7 @@ flowchart TD
 
     AB --> AC["Standard API Error Response"]
 
-
 %% Styling
-
     classDef start fill:#1f2937,stroke:#60a5fa,stroke-width:2px,color:#fff;
     classDef process fill:#111827,stroke:#9ca3af,stroke-width:1.5px,color:#fff;
     classDef decision fill:#1f2937,stroke:#fbbf24,stroke-width:2px,color:#fff;
@@ -496,12 +176,53 @@ flowchart TD
     classDef error fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fff;
 
     class A start;
-
     class B,D,E,F,G,H,K,N,Q,S,T,S1,S2,S3,T1,T2,T3,T4,X,Y,Z,AA,P process;
-
     class C,I,L,O,R,U decision;
-
     class W success;
-
     class J,M,V,AB,AC error;
-```
+    
+🗄️ Database Architecture
+The system utilizes a fully normalized relational database schema (3NF) containing 17 tables, divided into four core business domains:
+
+Identity & Security: USERS, VERIFICATION_CODES, FORGOT_PASSWORD_TOKENS
+
+Market Data: COINS, WATCHLISTS, WATCHLIST_COINS, MARKET_CHART_DATA
+
+Execution & Trading: ORDERS, ORDER_ITEMS, TRADING_HISTORIES, ASSETS
+
+Finance & Ledger: WALLETS, WALLET_TRANSACTIONS, WITHDRAWALS, PAYMENT_ORDERS, PAYMENT_DETAILS
+
+Users: id, fullName, email, mobile, password, status, isVerified, twoFactorAuth_enabled, twoFactorAuth_sendTo, picture, role
+
+Coins: id, symbol, name, current_price, market_cap, total_volume, circulating_supply, ath, atl... (and historical metrics)
+
+Assets (Holdings): id, quantity, buy_price, coin_id, user_id
+
+Wallets & Transactions: id, user_id, balance | wallet_id, type, amount, purpose, date
+
+Orders & Execution: id, user_id, order_type, price, status, timestamp
+
+Payments & Withdrawals: Track fiat deposits (PAYMENT_ORDERS) and bank-linked account details (PAYMENT_DETAILS, WITHDRAWALS).
+
+Entity-Relationship Diagram
+Code snippet
+erDiagram
+    USERS ||--|| WALLETS : owns
+    WALLETS ||--o{ WALLET_TRANSACTIONS : contains
+    USERS ||--o{ ASSETS : owns
+    COINS ||--o{ ASSETS : asset
+    USERS ||--o{ WITHDRAWALS : requests
+    USERS ||--|| WATCHLISTS : has
+    WATCHLISTS ||--o{ WATCHLIST_COINS : contains
+    COINS ||--o{ WATCHLIST_COINS : listed_in
+    USERS ||--o{ VERIFICATION_CODES : receives
+    USERS ||--o{ TRADING_HISTORIES : performs
+    COINS ||--o{ TRADING_HISTORIES : traded
+    USERS ||--o{ PAYMENT_ORDERS : creates
+    USERS ||--|| PAYMENT_DETAILS : owns
+    USERS ||--o{ ORDERS : places
+    ORDERS ||--|{ ORDER_ITEMS : contains
+    COINS ||--o{ ORDER_ITEMS : traded
+    USERS ||--o{ NOTIFICATIONS : sends
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ FORGOT_PASSWORD_TOKENS : receives
