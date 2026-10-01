@@ -37,6 +37,15 @@ Execute trades, manage digital wallets, track real-time market data, and process
 
 TradeForge is engineered for scale and correctness. It combines a stateless, secure authentication layer, a transactional order execution engine, a double-entry wallet ledger, and an idempotent multi-gateway payment pipeline behind a React-based trading terminal.
 
+### Repositories
+
+TradeForge is split across two repositories:
+
+| Repository | Description |
+| :--- | :--- |
+| **[TradeForge](https://github.com/Biikash1/TradeForge)** (this repo) | Spring Boot backend: REST API, security, trading engine, wallet and payments |
+| **[TradeForge-Frontend](https://github.com/Biikash1/TradeForge-Frontend)** | React + Redux + Tailwind CSS trading terminal |
+
 ---
 
 ## 🚀 Core Features
@@ -234,11 +243,14 @@ erDiagram
 - MySQL 8+ **or** PostgreSQL 14+
 - Razorpay and/or Stripe test-mode accounts
 
-### 1. Clone the repository
+### 1. Clone both repositories
 
 ```bash
-git clone https://github.com/<your-username>/tradeforge.git
-cd tradeforge
+# Backend
+git clone https://github.com/Biikash1/TradeForge.git
+
+# Frontend
+git clone https://github.com/Biikash1/TradeForge-Frontend.git
 ```
 
 ### 2. Set up the database
@@ -250,7 +262,7 @@ CREATE DATABASE tradeforge;
 ### 3. Run the backend
 
 ```bash
-cd backend
+cd TradeForge
 ./mvnw clean install
 ./mvnw spring-boot:run
 ```
@@ -260,12 +272,14 @@ The API starts on `http://localhost:8080` by default.
 ### 4. Run the frontend
 
 ```bash
-cd frontend
+cd TradeForge-Frontend
 npm install
 npm run dev
 ```
 
-The app starts on `http://localhost:5173` (Vite) or `http://localhost:3000` (CRA), depending on your setup.
+The app starts on `http://localhost:5173` (Vite) or `http://localhost:3000` (CRA), depending on your setup. Make sure the frontend's API base URL points to the running backend (see the [frontend README](https://github.com/Biikash1/TradeForge-Frontend)).
+
+> **CORS:** if the frontend and backend run on different origins, allow the frontend origin in the backend's CORS configuration.
 
 ---
 
@@ -273,16 +287,16 @@ The app starts on `http://localhost:5173` (Vite) or `http://localhost:3000` (CRA
 
 Never commit secrets. Provide them through environment variables or an untracked `application-local.properties`.
 
-| Variable | Description |
-| :--- | :--- |
-| `DB_URL` | JDBC URL, e.g. `jdbc:postgresql://localhost:5432/tradeforge` |
-| `DB_USERNAME` / `DB_PASSWORD` | Database credentials |
-| `JWT_SECRET` | Secret key used to sign JWTs (use a long, random value) |
-| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds |
-| `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP credentials used to send OTP emails |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay API credentials |
-| `STRIPE_SECRET_KEY` | Stripe secret API key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| Variable | Description                                              |
+| :--- |:---------------------------------------------------------|
+| `DB_URL` | JDBC URL, e.g. `jdbc:mysql://localhost:3306/Trading`     |
+| `DB_USERNAME` / `DB_PASSWORD` | Database credentials                                     |
+| `JWT_SECRET` | Secret key used to sign JWTs (use a long, random value)  |
+| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds                           |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP credentials used to send OTP emails                 |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay API credentials                                 |
+| `STRIPE_SECRET_KEY` | Stripe secret API key                                    |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret                            |
 | `COIN_API_KEY` | Market data provider key (if your provider requires one) |
 
 > **Note:** adjust variable names to match your `application.properties`.
@@ -291,23 +305,25 @@ Never commit secrets. Provide them through environment variables or an untracked
 
 ## 📁 Project Structure
 
+This repository contains the backend only. The React frontend lives in [TradeForge-Frontend](https://github.com/Biikash1/TradeForge-Frontend).
+
 ```text
-tradeforge/
-├── backend/                  # Spring Boot application
-│   └── src/main/java/…
-│       ├── controller/       # REST controllers
-│       ├── service/          # Business logic (payments, wallet, orders)
-│       ├── repository/       # Spring Data JPA repositories
-│       ├── model/            # JPA entities
-│       ├── request/          # Request DTOs
-│       ├── response/         # Response DTOs
-│       ├── config/           # Security & JWT configuration
-│       └── exception/        # Custom exceptions & global handler
-├── frontend/                 # React + Redux + Tailwind terminal
+TradeForge/
+├── src/main/java/…
+│   ├── controller/           # REST controllers
+│   ├── service/              # Business logic (payments, wallet, orders)
+│   ├── repository/           # Spring Data JPA repositories
+│   ├── model/                # JPA entities
+│   ├── request/              # Request DTOs
+│   ├── response/             # Response DTOs
+│   ├── config/               # Security & JWT configuration
+│   └── exception/            # Custom exceptions & global handler
+├── src/main/resources/       # application.properties, static assets
+├── pom.xml
 └── README.md
 ```
 
-> Update this tree to match your actual repository layout.
+> Update this tree to match your actual package layout.
 
 ---
 
@@ -321,26 +337,4 @@ tradeforge/
 
 ---
 
-## 🤝 Contributing
 
-Contributions are welcome.
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m "feat: add your feature"`
-4. Push the branch: `git push origin feature/your-feature`
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
-
----
-
-<div align="center">
-
-Built with ☕ Java and ⚛️ React
-
-</div>
