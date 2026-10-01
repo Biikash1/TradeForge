@@ -8,7 +8,7 @@ Execute trades, manage digital wallets, track real-time market data, and process
 
 [![Backend: Spring Boot](https://img.shields.io/badge/Backend-Spring%20Boot-6DB33F?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
 [![Frontend: React](https://img.shields.io/badge/Frontend-React-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
-[![Database: MySQL / PostgreSQL](https://img.shields.io/badge/Database-MySQL%20%7C%20PostgreSQL-336791?style=flat-square&logo=postgresql)](#-database-architecture)
+[![Database: MySQL](https://img.shields.io/badge/Database-MySQL-4479A1?style=flat-square&logo=mysql&logoColor=white)](#-database-architecture)
 [![Security: JWT & 2FA](https://img.shields.io/badge/Security-JWT%20%26%202FA-black?style=flat-square&logo=jsonwebtokens)](#-security--authentication)
 [![Java 21](https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk)](https://openjdk.org/)
 
@@ -28,8 +28,6 @@ Execute trades, manage digital wallets, track real-time market data, and process
 - [Configuration](#-configuration)
 - [Project Structure](#-project-structure)
 - [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
-- [License](#-license)
 
 ---
 
@@ -67,8 +65,8 @@ TradeForge is split across two repositories:
 | :--- | :--- |
 | **Backend Core** | Java 21, Spring Boot, Spring Data JPA, Hibernate |
 | **Frontend Terminal** | React, Redux (state management), Tailwind CSS |
-| **Security** | Spring Security, JWT, BCrypt, OTP via Email/SMS |
-| **Database** | Relational database (MySQL / PostgreSQL) |
+| **Security** | Spring Security, JWT, BCrypt, OTP via Email |
+| **Database** | MySQL |
 | **Payment Gateways** | Razorpay API, Stripe API |
 
 ---
@@ -184,7 +182,7 @@ flowchart TD
 
 ## 🗄️ Database Architecture
 
-A fully normalized relational schema (3NF) of **17 tables** across five domains:
+A fully normalized relational schema (3NF) of **17 tables** on MySQL, across five domains:
 
 | Domain | Tables |
 | :--- | :--- |
@@ -239,8 +237,8 @@ erDiagram
 
 - Java 21+
 - Maven 3.9+ (or the included wrapper)
-- Node.js 18+ and npm
-- MySQL 8+ **or** PostgreSQL 14+
+- Node.js (LTS) and npm
+- MySQL 8+
 - Razorpay and/or Stripe test-mode accounts
 
 ### 1. Clone both repositories
@@ -258,6 +256,8 @@ git clone https://github.com/Biikash1/TradeForge-Frontend.git
 ```sql
 CREATE DATABASE Trading;
 ```
+
+> Tables are created by Hibernate on first run (`spring.jpa.hibernate.ddl-auto=update`), so no schema script is needed.
 
 ### 3. Run the backend
 
@@ -277,7 +277,7 @@ npm install
 npm run dev
 ```
 
-The app starts on `http://localhost:5173` (Vite) or `http://localhost:3000` (CRA), depending on your setup. Make sure the frontend's API base URL points to the running backend (see the [frontend README](https://github.com/Biikash1/TradeForge-Frontend)).
+The app starts on `http://localhost:5173` (Vite). Make sure the frontend's API base URL points to the running backend (see the [frontend README](https://github.com/Biikash1/TradeForge-Frontend)).
 
 > **CORS:** if the frontend and backend run on different origins, allow the frontend origin in the backend's CORS configuration.
 
@@ -287,19 +287,19 @@ The app starts on `http://localhost:5173` (Vite) or `http://localhost:3000` (CRA
 
 Never commit secrets. Provide them through environment variables or an untracked `application-local.properties`.
 
-| Variable | Description                                              |
-| :--- |:---------------------------------------------------------|
-| `DB_URL` | JDBC URL, e.g. `jdbc:mysql://localhost:3306/Trading`     |
-| `DB_USERNAME` / `DB_PASSWORD` | Database credentials                                     |
-| `JWT_SECRET` | Secret key used to sign JWTs (use a long, random value)  |
-| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds                           |
-| `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP credentials used to send OTP emails                 |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay API credentials                                 |
-| `STRIPE_SECRET_KEY` | Stripe secret API key                                    |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret                            |
+| Variable | Description |
+| :--- | :--- |
+| `DB_URL` | JDBC URL, e.g. `jdbc:mysql://localhost:3306/Trading` |
+| `DB_USERNAME` / `DB_PASSWORD` | Database credentials |
+| `JWT_SECRET` | Secret key used to sign JWTs (use a long, random value) |
+| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP credentials used to send OTP emails |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay API credentials |
+| `STRIPE_SECRET_KEY` | Stripe secret API key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 | `COIN_API_KEY` | Market data provider key (if your provider requires one) |
 
-> **Note:** adjust variable names to match your `application.properties`.
+> **Note:** variable names must match the keys used in your `application.properties`.
 
 ---
 
@@ -323,8 +323,6 @@ TradeForge/
 └── README.md
 ```
 
-> Update this tree to match your actual package layout.
-
 ---
 
 ## 🗺️ Roadmap
@@ -334,7 +332,3 @@ TradeForge/
 - [ ] Portfolio analytics and P&L dashboards
 - [ ] Dockerized deployment (Docker Compose)
 - [ ] CI/CD pipeline and automated test coverage reports
-
----
-
-
