@@ -256,7 +256,7 @@ git clone https://github.com/Biikash1/TradeForge-Frontend.git
 ### 2. Set up the database
 
 ```sql
-CREATE DATABASE tradeforge;
+CREATE DATABASE Trading;
 ```
 
 ### 3. Run the backend
