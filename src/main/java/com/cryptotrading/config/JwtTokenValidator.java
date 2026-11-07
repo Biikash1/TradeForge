@@ -36,10 +36,9 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
         String path = request.getServletPath();
 
-        return path.startsWith("/auth/");
+        // Allow both auth endpoints and the WebSocket handshake path
+        return path.startsWith("/auth/") || path.startsWith("/ws");
     }
-
-
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {

@@ -36,8 +36,8 @@ public class CoinServiceImpl implements CoinService {
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final int TOP_COINS_LIMIT = 50;
 
-    // 3-minute in-memory cache to stay safely within keyless limits
-    private static final long CACHE_DURATION_MS = 180_000;
+    // 20-second cache to allow real-time WebSocket streaming while respecting CoinGecko limits
+    private static final long CACHE_DURATION_MS = 20_000;
     private long lastFetchTimestamp = 0;
 
     @Value("${coingecko.base-url:https://api.coingecko.com/api/v3}")

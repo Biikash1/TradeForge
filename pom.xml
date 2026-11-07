@@ -84,6 +84,10 @@
             <artifactId>stripe-java</artifactId>
             <version>33.2.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
 
         <!-- JWT Authentication -->
         <dependency>
@@ -103,7 +107,6 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
