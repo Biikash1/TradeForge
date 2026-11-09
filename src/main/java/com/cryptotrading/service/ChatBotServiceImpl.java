@@ -1,9 +1,13 @@
 package com.cryptotrading.service;
 
+import com.cryptotrading.domain.OrderType;
 import com.cryptotrading.dto.ApiResponse;
 import com.cryptotrading.dto.GeminiDto;
 import com.cryptotrading.exception.GeminiApiException;
+import com.cryptotrading.model.Asset;
 import com.cryptotrading.model.Coin;
+import com.cryptotrading.model.User;
+import com.cryptotrading.model.Wallet;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
@@ -16,6 +20,8 @@ import org.springframework.web.client.RestTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +34,10 @@ public class ChatBotServiceImpl implements ChatBotService {
     private final RestTemplate restTemplate;
     private final RestClient geminiRestClient;
     private final ObjectMapper objectMapper;
+
+    private final CoinService coinService;
+    private final WalletService walletService;
+    private final AssetService assetService;
 
     @Value("${gemini.api.base-url}")
     private String baseUrl;
@@ -264,6 +274,47 @@ public class ChatBotServiceImpl implements ChatBotService {
         } catch (Exception e) {
             log.error("Error in simpleChat: {}", e.getMessage());
             return "Market assistant is momentarily unavailable.";
+        }
+    }
+
+    @Override
+    public String getPreTradeInsight(String coinId, BigDecimal quantity, OrderType orderType, User user) {
+        try{
+            // 1. Fetch live context
+            Coin coin = coinService.findById(coinId);
+            Wallet wallet = walletService.getUserWallet(user);
+            Asset asset = assetService.findAssetByUserIdAndCoinId(user.getId(), coinId);
+
+            // 2. Calculate trade metrics
+            BigDecimal currentPrice = BigDecimal.valueOf(coin.getCurrentPrice());
+            BigDecimal totalValue = currentPrice.multiply(quantity)
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal currentHoldings = asset != null ? asset.getQuantity() : BigDecimal.ZERO;
+            Double priceChange = coin.getPriceChangePercentage24h();
+
+            // 3. Construct a highly contextual prompt for Gemini
+            String prompt = String.format(
+                    "You are an expert financial risk advisor for TradeForge. " +
+                            "Provide a concise, 2-3 sentence risk summary for this pending trade. " +
+                            "Action: %s %s %s. " +
+                            "Current Price: $%s (24h Change: %s%%). " +
+                            "Total Trade Value: $%s. " +
+                            "User's Fist Wallet Balance: $%s. " +
+                            "User's Current %s Holdings: %s. " +
+                            "Highlight key market risks (e.g., High volatility) or portfolio concentration risks. " +
+                            "Be objective, do NOT give direct financial advice, and format as plain text without markdown.",
+                    orderType.name(), quantity.toPlainString(), coin.getSymbol().toUpperCase(),
+                    currentPrice.toPlainString(), priceChange,
+                    totalValue.toPlainString(), wallet.getBalance().toPlainString(),
+                    coin.getSymbol().toUpperCase(), currentHoldings.toPlainString()
+            );
+
+            // 4. Reuse your existing simpleChat pipeline
+            return simpleChat(prompt);
+
+        } catch (Exception e) {
+           log.error("Failed to generate trade insight for user {}: {}", user.getId(), e.getMessage());
+           return "Notice: Unable to generate AI risk analysis at this time. please proceed with standard caution";
         }
     }
 
