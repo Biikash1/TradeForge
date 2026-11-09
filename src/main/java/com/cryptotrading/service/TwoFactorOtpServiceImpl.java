@@ -6,204 +6,111 @@ import com.cryptotrading.model.TwoFactorOTP;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.TwoFactorOtpRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-public class TwoFactorOtpServiceImpl implements TwoFactorOtpService{
+public class TwoFactorOtpServiceImpl implements TwoFactorOtpService {
 
     private final TwoFactorOtpRepository twoFactorOtpRepository;
     private final PasswordEncoder passwordEncoder;
-
     private static final int OTP_EXPIRATION_MINUTES = 15;
-
     private static final int MAX_ATTEMPTS = 5;
 
     @Override
     @Transactional
     public TwoFactorOTP createTwoFactorOtp(User user, String otp) {
+        validateCreateRequest(user, otp);
+        twoFactorOtpRepository.deleteByUserId(user.getId());
 
-        validateCreateRequest(
-                user,
-                otp
-        );
+        TwoFactorOTP twoFactorOTP = TwoFactorOTP.builder()
+                .otpHash(passwordEncoder.encode(otp))
+                .user(user)
+                .createdAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES))
+                .verified(false)
+                .attempts(0)
+                .build();
 
-        // Remove any previous OTP.
-        twoFactorOtpRepository.deleteByUserId(
-                user.getId()
-        );
-
-        TwoFactorOTP twoFactorOTP =
-                TwoFactorOTP.builder()
-                        .otpHash(passwordEncoder.encode(otp))
-                        .user(user)
-                        .createdAt(LocalDateTime.now())
-                        .expiresAt(
-                                LocalDateTime.now()
-                                        .plusMinutes(
-                                                OTP_EXPIRATION_MINUTES
-                                        )
-                        )
-                        .verified(false)
-                        .attempts(0)
-                        .build();
-
+        log.info("Created 2FA OTP session for User {}", user.getId());
         return twoFactorOtpRepository.save(twoFactorOTP);
     }
 
     @Override
     @Transactional(readOnly = true)
     public TwoFactorOTP findByUser(Long userId) {
-
-        if (userId == null) {
-            throw new IllegalArgumentException( "User ID cannot be null" );
-        }
-
-        /*
-         * No OTP is a valid situation.
-         *
-         * For example, when a user is logging in
-         * with 2FA for the first time, there may be
-         * no previous OTP.
-         */
-        return twoFactorOtpRepository
-                .findByUserId(userId)
-                .orElse(null);
+        if (userId == null) throw new IllegalArgumentException("User ID cannot be null");
+        return twoFactorOtpRepository.findByUserId(userId).orElse(null);
     }
 
     @Override
     @Transactional(readOnly = true)
     public TwoFactorOTP findById(String id) {
-
-        if (id == null || id.isBlank()) {
-            throw new IllegalArgumentException( "OTP ID cannot be empty" );
-        }
-
-        return twoFactorOtpRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new InvalidOtpException(
-                                "Invalid or expired OTP session"
-                        )
-                );
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("OTP ID cannot be empty");
+        return twoFactorOtpRepository.findById(id).orElseThrow(() -> {
+            log.warn("2FA OTP session lookup failed for ID {}", id);
+            return new InvalidOtpException("Invalid or expired OTP session");
+        });
     }
 
     @Override
     @Transactional
     public boolean verifyTwoFactorOtp(TwoFactorOTP twoFactorOTP, String otp) {
-
         validateVerificationRequest(twoFactorOTP, otp);
 
-          // Prevent OTP reuse.
         if (twoFactorOTP.isVerified()) {
-            throw new InvalidOtpException(
-                    "OTP has already been used"
-            );
+            log.warn("verifyTwoFactorOtp failed for User {}: Session already verified", twoFactorOTP.getUser().getId());
+            throw new InvalidOtpException("OTP has already been used");
         }
-
-
-         // Check expiration before comparing OTP.
         if (twoFactorOTP.isExpired()) {
-            throw new OtpExpiredException(
-                    "OTP has expired"
-            );
+            log.warn("verifyTwoFactorOtp failed for User {}: Session expired", twoFactorOTP.getUser().getId());
+            throw new OtpExpiredException("OTP has expired");
         }
-
-         // Prevent brute-force attacks.
         if (twoFactorOTP.getAttempts() >= MAX_ATTEMPTS) {
-
-            throw new InvalidOtpException(
-                    "Maximum OTP verification attempts exceeded"
-            );
+            log.warn("verifyTwoFactorOtp failed for User {}: Max attempts exceeded", twoFactorOTP.getUser().getId());
+            throw new InvalidOtpException("Maximum OTP verification attempts exceeded");
         }
 
-         //Increment attempts on every verification
-        twoFactorOTP.setAttempts(
-                twoFactorOTP.getAttempts() + 1
-        );
+        twoFactorOTP.setAttempts(twoFactorOTP.getAttempts() + 1);
 
-          //Compare raw OTP with stored hash.
-        boolean valid =
-                passwordEncoder.matches(
-                        otp,
-                        twoFactorOTP.getOtpHash()
-                );
-
-        if (!valid) {
-
-            twoFactorOtpRepository.save(
-                    twoFactorOTP
-            );
-
-            throw new InvalidOtpException(
-                    "Invalid OTP"
-            );
+        if (!passwordEncoder.matches(otp, twoFactorOTP.getOtpHash())) {
+            twoFactorOtpRepository.save(twoFactorOTP);
+            log.warn("verifyTwoFactorOtp failed for User {}: Invalid OTP", twoFactorOTP.getUser().getId());
+            throw new InvalidOtpException("Invalid OTP");
         }
 
-          //OTP successfully verified.
         twoFactorOTP.setVerified(true);
+        twoFactorOtpRepository.save(twoFactorOTP);
+        twoFactorOtpRepository.delete(twoFactorOTP);
 
-        twoFactorOtpRepository.save(
-                twoFactorOTP
-        );
-
-        //OTP is one-time use.
-        twoFactorOtpRepository.delete( twoFactorOTP );
-
+        log.info("Successfully verified 2FA OTP for User {}", twoFactorOTP.getUser().getId());
         return true;
-
     }
 
     @Override
     @Transactional
     public void deleteTwoFactorOtp(TwoFactorOTP twoFactorOTP) {
-        if (twoFactorOTP == null) {
-            return;
-        }
-
-        twoFactorOtpRepository.delete(
-                twoFactorOTP
-        );
-    }
-
-    private void validateCreateRequest(
-            User user,
-            String otp) {
-
-        if (user == null) {
-            throw new IllegalArgumentException(
-                    "User cannot be null"
-            );
-        }
-
-        if (otp == null ||
-                otp.isBlank()) {
-
-            throw new IllegalArgumentException(
-                    "OTP cannot be empty"
-            );
-        }
-
-        if (passwordEncoder == null) {
-            throw new IllegalStateException( "Password encoder is not configured" );
+        if (twoFactorOTP != null) {
+            log.debug("Deleting 2FA OTP session {}", twoFactorOTP.getId());
+            twoFactorOtpRepository.delete(twoFactorOTP);
         }
     }
 
-    private void validateVerificationRequest( TwoFactorOTP twoFactorOTP, String otp) {
-        if (twoFactorOTP == null) {
-            throw new InvalidOtpException( "OTP verification request is invalid" );
+    private void validateCreateRequest(User user, String otp) {
+        if (user == null || otp == null || otp.isBlank() || passwordEncoder == null) {
+            throw new IllegalArgumentException("Invalid 2FA creation request parameters");
         }
+    }
 
-        if (otp == null || otp.isBlank()) {
-            throw new InvalidOtpException( "OTP cannot be empty" );
+    private void validateVerificationRequest(TwoFactorOTP twoFactorOTP, String otp) {
+        if (twoFactorOTP == null || otp == null || otp.isBlank() || twoFactorOTP.getOtpHash() == null || twoFactorOTP.getOtpHash().isBlank()) {
+            throw new InvalidOtpException("OTP verification request is invalid");
         }
-
-        if (twoFactorOTP.getOtpHash() == null ||
-                twoFactorOTP.getOtpHash().isBlank()) {
-            throw new InvalidOtpException( "OTP verification data is invalid" ); }
     }
 }

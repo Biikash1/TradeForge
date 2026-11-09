@@ -9,6 +9,7 @@ import com.cryptotrading.model.WalletTransaction;
 import com.cryptotrading.repository.WalletRepository;
 import com.cryptotrading.repository.WalletTransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WalletServiceImpl implements WalletService {
@@ -27,11 +29,13 @@ public class WalletServiceImpl implements WalletService {
     @Transactional
     public Wallet getUserWallet(User user) {
         if (user == null || user.getId() == null) {
+            log.warn("Attempt to fetch wallet failed: User or User ID is null.");
             throw new IllegalArgumentException("User cannot be null");
         }
 
         return walletRepository.findByUserId(user.getId())
                 .orElseGet(() -> {
+                    log.info("Wallet not found for User ID: {}. Creating a new empty wallet.", user.getId());
                     Wallet wallet = Wallet.builder()
                             .user(user)
                             .balance(BigDecimal.ZERO)
@@ -47,12 +51,15 @@ public class WalletServiceImpl implements WalletService {
         validateAmount(amount);
 
         if (wallet == null || wallet.getId() == null) {
+            log.warn("Attempt to add balance failed: Wallet or Wallet ID is null.");
             throw new IllegalArgumentException("Wallet cannot be null");
         }
 
         BigDecimal currentBalance = getBalance(wallet);
         wallet.setBalance(currentBalance.add(amount));
         Wallet savedWallet = walletRepository.save(wallet);
+
+        log.info("Wallet ID: {} - Added balance: ${}. New Balance: ${}", wallet.getId(), amount, savedWallet.getBalance());
 
         // Record Deposit Transaction
         WalletTransaction transaction = WalletTransaction.builder()
@@ -76,7 +83,10 @@ public class WalletServiceImpl implements WalletService {
         }
 
         return walletRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Wallet not found with id: " + id));
+                .orElseThrow(() -> {
+                    log.warn("Wallet lookup failed: Wallet ID {} not found.", id);
+                    return new IllegalArgumentException("Wallet not found with id: " + id);
+                });
     }
 
     @Transactional
@@ -94,22 +104,25 @@ public class WalletServiceImpl implements WalletService {
         Wallet senderWallet = getUserWallet(sender);
 
         if (senderWallet.getId().equals(receiverWallet.getId())) {
+            log.warn("Transfer failed: Sender Wallet ID {} is the same as Receiver Wallet ID.", senderWallet.getId());
             throw new IllegalArgumentException("Sender and receiver wallets cannot be the same");
         }
 
         BigDecimal senderBalance = getBalance(senderWallet);
 
         if (senderBalance.compareTo(amount) < 0) {
+            log.warn("Transfer failed: Sender Wallet ID {} has insufficient balance (${}) to send ${}.", senderWallet.getId(), senderBalance, amount);
             throw new IllegalStateException("Insufficient wallet balance. Current balance: " + senderBalance);
         }
 
         senderWallet.setBalance(senderBalance.subtract(amount));
-
         BigDecimal receiverBalance = getBalance(receiverWallet);
         receiverWallet.setBalance(receiverBalance.add(amount));
 
         walletRepository.save(senderWallet);
         walletRepository.save(receiverWallet);
+
+        log.info("Transfer Success: ${} from Wallet {} to Wallet {}", amount, senderWallet.getId(), receiverWallet.getId());
 
         String transferId = UUID.randomUUID().toString();
         String note = (purpose != null && !purpose.isBlank()) ? purpose.trim() : "Wallet Transfer";
@@ -158,10 +171,13 @@ public class WalletServiceImpl implements WalletService {
 
         if (order.getOrderType() == OrderType.BUY) {
             if (currentBalance.compareTo(orderPrice) < 0) {
+                log.warn("Buy Order Failed: User {} has insufficient funds in Wallet {} to buy ${} worth of assets. Current balance: ${}", user.getId(), wallet.getId(), orderPrice, currentBalance);
                 throw new IllegalStateException("Insufficient funds for this trade");
             }
 
             wallet.setBalance(currentBalance.subtract(orderPrice));
+
+            log.info("Wallet Deducted: ${} for Buy Order {} from Wallet {}", orderPrice, order.getId(), wallet.getId());
 
             WalletTransaction buyTx = WalletTransaction.builder()
                     .wallet(wallet)
@@ -176,6 +192,8 @@ public class WalletServiceImpl implements WalletService {
         } else if (order.getOrderType() == OrderType.SELL) {
             wallet.setBalance(currentBalance.add(orderPrice));
 
+            log.info("Wallet Credited: ${} for Sell Order {} to Wallet {}", orderPrice, order.getId(), wallet.getId());
+
             WalletTransaction sellTx = WalletTransaction.builder()
                     .wallet(wallet)
                     .type(WalletTransactionType.SELL_ASSETS)
@@ -187,6 +205,7 @@ public class WalletServiceImpl implements WalletService {
             walletTransactionRepository.save(sellTx);
 
         } else {
+            log.error("Unsupported order type encountered: {}", order.getOrderType());
             throw new IllegalArgumentException("Unsupported order type: " + order.getOrderType());
         }
 
@@ -205,11 +224,14 @@ public class WalletServiceImpl implements WalletService {
         BigDecimal currentBalance = getBalance(wallet);
 
         if (currentBalance.compareTo(amount) < 0) {
+            log.warn("Withdrawal failed: Wallet ID {} has insufficient balance (${}) to withdraw ${}.", wallet.getId(), currentBalance, amount);
             throw new IllegalStateException("Insufficient wallet balance for withdrawal");
         }
 
         wallet.setBalance(currentBalance.subtract(amount));
         Wallet savedWallet = walletRepository.save(wallet);
+
+        log.info("Withdrawal processed: ${} deducted from Wallet ID {}. New Balance: ${}", amount, wallet.getId(), savedWallet.getBalance());
 
         WalletTransaction withdrawTx = WalletTransaction.builder()
                 .wallet(savedWallet)
