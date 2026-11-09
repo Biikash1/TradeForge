@@ -6,6 +6,7 @@ import com.cryptotrading.repository.CoinRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -38,19 +39,20 @@ public class CoinServiceImpl implements CoinService {
 
     // 20-second cache to allow real-time WebSocket streaming while respecting CoinGecko limits
     private static final long CACHE_DURATION_MS = 20_000;
-    private long lastFetchTimestamp = 0;
+    private volatile long lastFetchTimestamp = 0;
 
     @Value("${coingecko.base-url:https://api.coingecko.com/api/v3}")
     private String baseUrl;
 
     @Override
+    @Cacheable(value = "coinList", key = "#page")
     public List<Coin> getCoinList(int page) {
         validatePage(page);
 
-        long now = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis();
 
         // Serve from database if fetched recently
-        if (page == 1 && (now - lastFetchTimestamp < CACHE_DURATION_MS) && coinRepository.count() > 0) {
+        if (page == 1 && (startTime - lastFetchTimestamp < CACHE_DURATION_MS) && coinRepository.count() > 0) {
             return coinRepository.findAll();
         }
 
@@ -67,25 +69,32 @@ public class CoinServiceImpl implements CoinService {
             List<Coin> coins = get(url, new TypeReference<List<Coin>>() {});
             if (coins != null && !coins.isEmpty()) {
                 coinRepository.saveAll(coins);
-                lastFetchTimestamp = now;
+                lastFetchTimestamp = System.currentTimeMillis();   // added
+                log.info("CoinGecko API Call Duration (Miss): {}ms", (System.currentTimeMillis() - startTime));
                 return coins;
             }
-        } catch (Exception ex) {
-            log.warn("CoinGecko rate limit or error reached (429). Serving fallback/database cache: {}", ex.getMessage());
-
-            if (coinRepository.count() > 0) {
-                return coinRepository.findAll();
-            }
-
-            List<Coin> defaultCoins = getFallbackCoins();
-            coinRepository.saveAll(defaultCoins);
-            return defaultCoins;
+        } catch (CoinApiException ex) {                            // added
+            log.warn("CoinGecko call failed: {}", ex.getMessage());
+            return fallbackList();
+        } catch (Exception ex) {                                   // added
+            log.error("Coin refresh failed", ex);
+            return fallbackList();
         }
 
-        return coinRepository.count() > 0 ? coinRepository.findAll() : getFallbackCoins();
+        return fallbackList();
+    }
+
+    private List<Coin> fallbackList() {
+        if (coinRepository.count() > 0) {
+            return coinRepository.findAll();
+        }
+        List<Coin> defaultCoins = getFallbackCoins();
+        coinRepository.saveAll(defaultCoins);
+        return defaultCoins;
     }
 
     @Override
+    @Cacheable(value = "marketChart", key = "#coinId + '-' + #days")
     public JsonNode getMarketChart(String coinId, int days) {
         validateCoinId(coinId);
 
@@ -110,6 +119,7 @@ public class CoinServiceImpl implements CoinService {
     }
 
     @Override
+    @Cacheable(value = "coinDetails", key = "#coinId")
     public JsonNode getCoinDetails(String coinId) {
         validateCoinId(coinId);
 
@@ -166,6 +176,7 @@ public class CoinServiceImpl implements CoinService {
     }
 
     @Override
+    @Cacheable(value = "trendingCoins")
     public JsonNode getTrendingCoins() {
         String url = UriComponentsBuilder
                 .fromUriString(baseUrl)

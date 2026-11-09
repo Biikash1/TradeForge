@@ -4,6 +4,7 @@ import com.cryptotrading.model.Coin;
 import com.cryptotrading.service.CoinService;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/coins")
 @RequiredArgsConstructor
+@Slf4j
 public class CoinController {
 
     private final CoinService coinService;
@@ -34,9 +36,13 @@ public class CoinController {
            @Min(value = 1, message = "Page must be greater than 0")
            int page) {
 
-       return ResponseEntity.ok(
-               coinService.getCoinList(page)
-       );
+        long startTime = System.currentTimeMillis();
+        List<Coin> coins = coinService.getCoinList(page);
+
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("GET /api/coins (page={}) completed in {} ms", page, duration);
+
+       return ResponseEntity.ok(coins);
     }
 
     @GetMapping("/{coinId}/chart")

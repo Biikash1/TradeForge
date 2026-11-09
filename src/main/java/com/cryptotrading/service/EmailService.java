@@ -1,5 +1,6 @@
 package com.cryptotrading.service;
 
+import com.cryptotrading.dto.TradeEvent;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -53,5 +54,41 @@ public class EmailService {
         if (!StringUtils.hasText(otp)) {
             throw new IllegalArgumentException( "OTP cannot be empty" );
         }
+    }
+
+    public void sendTradeSuccessEmail(String email, TradeEvent event) {
+       if(!StringUtils.hasText(email)) {
+           throw new IllegalArgumentException("Email cannot be empty");
+       }
+
+       try{
+           MimeMessage message = javaMailSender.createMimeMessage();
+           MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+
+           helper.setFrom(fromEmail);
+           helper.setTo(email);
+           helper.setSubject("TradeForge - Trade Execution Successful");
+
+           //Build a formatted email message
+           String text = String.format(
+                   "Hello,\n\n" +
+                           "Your trade order has been successfully executed on TradeForge.\n\n" +
+                           "Order Details:\n" +
+                           "Action: %s\n" +
+                           "Assets: %s\n" +
+                           "Quantity: %s\n" +
+                           "Price: $%s\n\n" +
+                           "Thank you for trading with us!",
+                   event.orderType().name(),
+                   event.coinId().toUpperCase(),
+                   event.quantity().toPlainString(),
+                   event.price().toPlainString()
+           );
+
+           helper.setText(text);
+           javaMailSender.send(message);
+       }catch (MessagingException e) {
+           throw new RuntimeException("Failed to send trade success email", e);
+       }
     }
 }

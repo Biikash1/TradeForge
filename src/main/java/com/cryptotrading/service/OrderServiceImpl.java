@@ -2,15 +2,20 @@ package com.cryptotrading.service;
 
 import com.cryptotrading.domain.OrderStatus;
 import com.cryptotrading.domain.OrderType;
+import com.cryptotrading.dto.TradeEvent;
 import com.cryptotrading.exception.InvalidOrderException;
 import com.cryptotrading.exception.OrderNotFoundException;
 import com.cryptotrading.model.*;
 import com.cryptotrading.repository.OrderRepository;
+import com.cryptotrading.service.kafka.TradeEventProducer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -20,6 +25,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final WalletService walletService;
     private final AssetService assetService;
+    private final TradeEventProducer tradeEventProducer;
 
     @Override
     @Transactional
@@ -85,7 +91,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Transactional
-    public Order buyAssets(Coin coin, BigDecimal quantity, User user) {
+    public Order buyAssets(
+            Coin coin,
+            BigDecimal quantity,
+            User user) {
+
         BigDecimal buyPrice = BigDecimal.valueOf(coin.getCurrentPrice());
 
         OrderItem orderItem = createOrderItem(
@@ -128,7 +138,27 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(OrderStatus.FILLED);
-        return orderRepository.save(order);
+        Order savedOrder =  orderRepository.save(order);
+
+        TradeEvent event = new TradeEvent(
+                java.util.UUID.randomUUID().toString(),
+                savedOrder.getId(),
+                user.getId(),
+                coin.getId(),
+                savedOrder.getOrderType(),
+                quantity,
+                savedOrder.getPrice(),
+                Instant.now()
+        );
+
+       // Only send to Kafka if the MySQL commit succeeds
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                tradeEventProducer.sendTradeEvent(event);
+            }
+        });
+        return savedOrder;
     }
 
     @Transactional
@@ -177,7 +207,27 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(OrderStatus.FILLED);
-        return orderRepository.save(order);
+        Order savedOrder =  orderRepository.save(order);
+
+        TradeEvent event = new TradeEvent(
+                java.util.UUID.randomUUID().toString(),
+                savedOrder.getId(),
+                user.getId(),
+                coin.getId(),
+                savedOrder.getOrderType(),
+                quantity,
+                savedOrder.getPrice(),
+                Instant.now()
+        );
+
+        // Only send to Kafka if the MySQL commit succeeds
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                tradeEventProducer.sendTradeEvent(event);
+            }
+        });
+        return savedOrder;
     }
 
     @Transactional
