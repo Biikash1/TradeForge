@@ -11,6 +11,7 @@ import com.cryptotrading.service.OrderService;
 import com.cryptotrading.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -64,23 +65,25 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<List<OrderResponse>> getAllOrderForUser(
+    public ResponseEntity<Page<OrderResponse>> getAllOrderForUser(
             @RequestHeader("Authorization") String jwt,
             @RequestParam(required = false) OrderType orderType,
-            @RequestParam(required = false) String assetSymbol){
+            @RequestParam(required = false) String assetSymbol,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size){
 
        User user = userService.findUserProfileByJwt(jwt);
 
-        List<Order> orders =
+        Page<Order> orders =
                 orderService.getAllOrderOfUser(
                         user.getId(),
                         orderType,
-                        assetSymbol
+                        assetSymbol,
+                        page, size
                 );
 
-        List<OrderResponse> response = orders.stream()
-                .map(OrderResponse::from)
-                .toList();
+        Page<OrderResponse> response =
+                orders.map(OrderResponse::from);
 
         return ResponseEntity.ok(response);
     }

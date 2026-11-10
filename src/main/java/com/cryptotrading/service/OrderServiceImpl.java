@@ -10,6 +10,9 @@ import com.cryptotrading.repository.OrderRepository;
 import com.cryptotrading.service.kafka.TradeEventProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -62,29 +65,33 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Order> getAllOrderOfUser(Long userId, OrderType orderType, String assetSymbol) {
-        log.debug("Fetching orders for User {}, Type: {}, Symbol: {}", userId, orderType, assetSymbol);
+    public Page<Order> getAllOrderOfUser(Long userId,
+                                         OrderType orderType,
+                                         String assetSymbol,
+                                         int page, int size) {
+        log.debug("Fetching orders for User {}, Type: {}, Symbol: {}", userId, orderType, assetSymbol, page);
 
+        Pageable pageable = PageRequest.of(page, size);
         boolean hasOrderType = orderType != null;
         boolean hasAssetSymbol = assetSymbol != null && !assetSymbol.isBlank();
 
         if (hasOrderType && hasAssetSymbol) {
             return orderRepository.findByUserIdAndOrderTypeAndOrderItemCoinSymbolOrderByTimestampDesc(
-                    userId, orderType, assetSymbol.toUpperCase()
+                    userId, orderType, assetSymbol.toUpperCase(), pageable
             );
         }
 
         if (hasOrderType) {
-            return orderRepository.findByUserIdAndOrderTypeOrderByTimestampDesc(userId, orderType);
+            return orderRepository.findByUserIdAndOrderTypeOrderByTimestampDesc(userId, orderType, pageable);
         }
 
         if (hasAssetSymbol) {
             return orderRepository.findByUserIdAndOrderItemCoinSymbolOrderByTimestampDesc(
-                    userId, assetSymbol.toUpperCase()
+                    userId, assetSymbol.toUpperCase(), pageable
             );
         }
 
-        return orderRepository.findByUserIdOrderByTimestampDesc(userId);
+        return orderRepository.findByUserIdOrderByTimestampDesc(userId, pageable);
     }
 
     @Transactional

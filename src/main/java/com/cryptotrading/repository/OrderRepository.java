@@ -3,28 +3,33 @@ package com.cryptotrading.repository;
 import com.cryptotrading.domain.OrderStatus;
 import com.cryptotrading.domain.OrderType;
 import com.cryptotrading.model.Order;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    List<Order> findByUserIdOrderByTimestampDesc(Long userId);
+    Page<Order> findByUserIdOrderByTimestampDesc(Long userId, Pageable pageable);
 
-    List<Order> findByUserIdAndOrderTypeOrderByTimestampDesc(
-            Long userId,
-            OrderType orderType
-    );
-
-    List<Order> findByUserIdAndOrderItemCoinSymbolOrderByTimestampDesc(
-            Long userId,
-            String symbol
-    );
-
-    List<Order> findByUserIdAndOrderTypeAndOrderItemCoinSymbolOrderByTimestampDesc(
+    Page<Order> findByUserIdAndOrderTypeOrderByTimestampDesc(
             Long userId,
             OrderType orderType,
-            String symbol
+            Pageable pageable
+    );
+
+    Page<Order> findByUserIdAndOrderItemCoinSymbolOrderByTimestampDesc(
+            Long userId,
+            String symbol,
+            Pageable pageable
+    );
+
+    Page<Order> findByUserIdAndOrderTypeAndOrderItemCoinSymbolOrderByTimestampDesc(
+            Long userId,
+            OrderType orderType,
+            String symbol,
+            Pageable pageable
     );
 
     List<Order> findByStatusAndOrderTypeIn(

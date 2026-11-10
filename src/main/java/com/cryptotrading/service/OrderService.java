@@ -5,6 +5,7 @@ import com.cryptotrading.model.Coin;
 import com.cryptotrading.model.Order;
 import com.cryptotrading.model.OrderItem;
 import com.cryptotrading.model.User;
+import org.springframework.data.domain.Page;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -15,7 +16,7 @@ public interface OrderService {
 
     Order getOrderById(Long orderId);
 
-    List<Order> getAllOrderOfUser(Long userId, OrderType orderType, String assetSymbol);
+    Page<Order> getAllOrderOfUser(Long userId, OrderType orderType, String assetSymbol, int page, int size);
 
     Order processOrder(Coin coin, BigDecimal quantity, OrderType orderType, User user,BigDecimal targetPrice);
 

@@ -13,6 +13,7 @@ import com.cryptotrading.service.WalletService;
 import com.cryptotrading.service.WalletTransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,16 +43,18 @@ public class WalletController {
 
     // 2. Get wallet transaction history
     @GetMapping("/transaction")
-    public ResponseEntity<List<WalletTransaction>> getWalletTransactions(
-            @RequestHeader("Authorization") String jwt) {
+    public ResponseEntity<Page<WalletTransaction>> getWalletTransactions(
+            @RequestHeader("Authorization") String jwt,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
         User user = userService.findUserProfileByJwt(jwt);
         Wallet wallet = walletService.getUserWallet(user);
 
-        List<WalletTransaction> transactions =
-                walletTransactionService.getTransactionsByWallet(wallet);
+        Page<WalletTransaction> transactions =
+                walletTransactionService.getTransactionsByWallet(wallet, page, size);
 
-        return ResponseEntity.ok(transactions != null ? transactions : List.of());
+        return ResponseEntity.ok(transactions != null ? transactions : Page.empty());
     }
 
     // 3. Transfer funds to another wallet (passes purpose for transaction logging)
