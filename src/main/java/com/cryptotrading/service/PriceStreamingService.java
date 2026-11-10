@@ -24,8 +24,13 @@ public class PriceStreamingService {
             // Fetches fresh data because the 20s cache has expired
             List<Coin> topCoins = coinService.getCoinList(1);
 
-            // Broadcast the list of coins to any client subscribe to /topic/public/price
+            // 1. Broadcast aggregate list for the Home Page dashboard
             messagingTemplate.convertAndSend("/topic/public/prices", topCoins);
+
+            // 2. Broadcast individual coins for optimized Stock Details pages
+            for(Coin coin : topCoins) {
+                messagingTemplate.convertAndSend("/topic/price/" + coin.getId(), coin);
+            }
         } catch (Exception e) {
             log.error("Failed to stream live price via WebSocket: {}", e.getMessage());
         }
