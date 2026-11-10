@@ -34,4 +34,7 @@ public class Wallet {
     )
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;
+
+    @Version
+    private Long version;
 }
