@@ -195,14 +195,94 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    @Override
     @Transactional
-    public Order processOrder(Coin coin, BigDecimal quantity, OrderType orderType, User user) {
+    public Order processOrder(Coin coin, BigDecimal quantity, OrderType orderType, User user, BigDecimal targetPrice) {
         validateOrder(coin, quantity, orderType, user);
 
-        return switch (orderType) {
-            case BUY -> buyAssets(coin, quantity, user);
-            case SELL -> sellAssets(coin, quantity, user);
-        };
+       if(orderType == OrderType.BUY || orderType == OrderType.SELL) {
+           // Market orders execute instantly
+           return orderType == OrderType.BUY ? buyAssets(coin, quantity, user) : sellAssets(coin, quantity, user);
+       }
+
+       // Advance Orders(Limit / Stop loss)
+        if(targetPrice == null || targetPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw  new InvalidOrderException("Target price is required for Limit and Stop-Loss orders");
+        }
+
+        OrderItem orderItem = createOrderItem(coin, quantity, null, null);
+        Order order = createOrder(user, orderItem, orderType);
+        order.setTargetPrice(targetPrice);
+
+        log.info("Created PENDING {} order for User {}. Target Price: {}", orderType, user.getId(), targetPrice);
+        return orderRepository.save(order);
+    }
+
+    @Override
+    @Transactional
+    public void executePendingAdvanceOrder(Long orderId, Coin currentMarketCoin) {
+        Order order = getOrderById(orderId);
+        User user = order.getUser();
+        BigDecimal quantity = order.getOrderItem().getQuantity();
+        BigDecimal currentPrice = BigDecimal.valueOf(currentMarketCoin.getCurrentPrice());
+
+        // Update the order with the execution price
+        order.setPrice(currentPrice.multiply(quantity));
+
+        try{
+            if(order.getOrderType() == OrderType.LIMIT_BUY || order.getOrderType() == OrderType.STOP_LOSS_BUY) {
+                order.getOrderItem().setBuyPrice(currentPrice);
+                walletService.payOrder(order, user);
+
+                Asset existingAsset = assetService.findAssetByUserIdAndCoinId(user.getId(), currentMarketCoin.getId());
+                if(existingAsset == null) {
+                    assetService.createAsset(user, currentMarketCoin, quantity);
+                } else {
+                    assetService.updateAsset(existingAsset.getId(), quantity);
+                }
+            } else {
+                 order.getOrderItem().setSellPrice(currentPrice);
+                // Verify user still has the asset before executing
+                Asset asset = assetService.findAssetByUserIdAndCoinId(user.getId(), currentMarketCoin.getId());
+                if(asset == null || asset.getQuantity().compareTo(quantity) < 0) {
+                    throw new InvalidOrderException("Insufficient asset quantity at execution time");
+                }
+
+                walletService.payOrder(order, user);
+                Asset updatedAsset = assetService.updateAsset(asset.getId(), quantity.negate());
+                if(updatedAsset.getQuantity().signum() == 0) {
+                    assetService.deleteAsset(updatedAsset.getId());
+                }
+            }
+
+            order.setStatus(OrderStatus.FILLED);
+            Order savedOrder  = orderRepository.save(order);
+            log.info("Successfully executed advanced order ID {} for User {}", savedOrder.getId(), user.getId());
+
+            // Fire Kafka Event
+            TradeEvent event = new TradeEvent(
+                    java.util.UUID.randomUUID().toString(),
+                    savedOrder.getId(),
+                    user.getId(),
+                    currentMarketCoin.getId(),
+                    savedOrder.getOrderType(),
+                    quantity,
+                    savedOrder.getPrice(),
+                    Instant.now()
+            );
+
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    tradeEventProducer.sendTradeEvent(event);
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Advanced order ID {} failed execution (e.g., insufficient funds). Marking as CANCELLED. Reason: {}",
+                    order.getId(), e.getMessage());
+            order.setStatus(OrderStatus.CANCELLED);
+            orderRepository.save(order);
+        }
     }
 
     private OrderItem createOrderItem(Coin coin, BigDecimal quantity, BigDecimal buyPrice, BigDecimal sellPrice) {

@@ -49,6 +49,9 @@ public class Order {
     )
     private OrderItem orderItem;
 
+    @Column(precision = 30, scale = 18)
+    private BigDecimal targetPrice;
+
     @PrePersist
     protected void onCreate() {
         timestamp = LocalDateTime.now();

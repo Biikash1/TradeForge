@@ -24,4 +24,7 @@ public class OrderRequest {
 
     @NotNull(message = "Order type is required")
     private OrderType orderType;
+
+    @DecimalMin(value = "0.00000001", message = "Target price must be positive if provided")
+    private BigDecimal targetPrice;
 }

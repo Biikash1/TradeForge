@@ -17,7 +17,9 @@ public interface OrderService {
 
     List<Order> getAllOrderOfUser(Long userId, OrderType orderType, String assetSymbol);
 
-    Order processOrder(Coin coin, BigDecimal quantity, OrderType orderType, User user);
+    Order processOrder(Coin coin, BigDecimal quantity, OrderType orderType, User user,BigDecimal targetPrice);
+
+    void executePendingAdvanceOrder(Long orderId, Coin currentMarketCoin);
 
 
 }

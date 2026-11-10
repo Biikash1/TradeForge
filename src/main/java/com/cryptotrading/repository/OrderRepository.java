@@ -1,5 +1,6 @@
 package com.cryptotrading.repository;
 
+import com.cryptotrading.domain.OrderStatus;
 import com.cryptotrading.domain.OrderType;
 import com.cryptotrading.model.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,5 +25,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             Long userId,
             OrderType orderType,
             String symbol
+    );
+
+    List<Order> findByStatusAndOrderTypeIn(
+            OrderStatus status,
+            List<OrderType> orderTypes
     );
 }

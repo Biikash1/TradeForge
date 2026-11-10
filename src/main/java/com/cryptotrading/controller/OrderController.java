@@ -34,7 +34,10 @@ public class OrderController {
         User user = userService.findUserProfileByJwt(jwt);
         Coin coin = coinService.findById(request.getCoinId());
 
-        Order order = orderService.processOrder(coin, request.getQuantity(), request.getOrderType(), user);
+        Order order = orderService.processOrder(coin,
+                request.getQuantity(),
+                request.getOrderType(),
+                user, request.getTargetPrice());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(OrderResponse.from(order));
