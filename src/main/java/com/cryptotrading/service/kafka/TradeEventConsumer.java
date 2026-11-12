@@ -9,10 +9,12 @@ import com.cryptotrading.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -23,6 +25,7 @@ public class TradeEventConsumer {
     private final ProcessedEventRepository processedEventRepository;
     private final EmailService emailService;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @KafkaListener(topics = "trade-events", groupId = "tradeforge-async-group")
     @Transactional
@@ -57,11 +60,25 @@ public class TradeEventConsumer {
 
         if(userOptional.isPresent()) {
             User user = userOptional.get();
-            // Send the automated email
+            // 1. Send the automated email
             emailService.sendTradeSuccessEmail(user.getEmail(), event);
             log.info("Trade success email sent to {}", user.getEmail());
+
+            // 2. Push Live Notification via WebSocket
+            String message = String.format("Successfully executed %s for %s %s at $%s",
+                    event.orderType(), event.quantity().toPlainString(), event.coinId().toUpperCase(), event.price().toPlainString());
+
+            Map<String, Object> payload = Map.of(
+                    "title", "Order Executed!",
+                    "message", message,
+                    "orderId", event.orderId(),
+                    "timestamp", event.timestamp()
+            );
+
+            //Using unique topic path based on User ID
+            messagingTemplate.convertAndSend("/topic/notifications/" + event.userId(), (Object) payload);
         } else {
-            log.warn("Cannot send email. User not found for Id: {}", event.userId());
+            log.warn("Cannot send email/notification. User not found for Id: {}", event.userId());
         }
     }
 }
