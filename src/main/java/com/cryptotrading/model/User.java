@@ -11,7 +11,7 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @AllArgsConstructor
-@Table(name = "users")
+//@Table(name = "users") // for testing
 public class User {
 
     @Id

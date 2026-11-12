@@ -78,6 +78,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Swagger OpenAPI Documentation for Spring Boot 4 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.2.0</version>
+        </dependency>
+
         <!-- Kafka -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
