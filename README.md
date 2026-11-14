@@ -53,87 +53,88 @@ TradeForge is split across two repositories:
 ```mermaid
 flowchart TD
 
-subgraph group_identity["Identity and security"]
-  node_auth_api["Authentication API"]
-  node_user_api["User API"]
-  node_user_service["User service<br/>[UserService.java]"]
-  node_verification["OTP verification"]
-  node_email["Email delivery<br/>[EmailService.java]"]
-end
+    subgraph group_identity["Identity and security"]
+        node_auth_api["Authentication API"]
+        node_user_api["User API"]
+        node_user_service["User service<br/>[UserService.java]"]
+        node_verification["OTP verification"]
+        node_email["Email delivery<br/>[EmailService.java]"]
+    end
 
-subgraph group_market["Market and portfolio"]
-  node_market_api["Coin API"]
-  node_coin_service["Market data service<br/>[CoinService.java]"]
-  node_price_stream["Price streaming"]
-  node_portfolio["Portfolio analytics"]
-  node_watchlist["Watchlists"]
-end
+    subgraph group_market["Market and portfolio"]
+        node_market_api["Coin API"]
+        node_coin_service["Market data service<br/>[CoinService.java]"]
+        node_price_stream["Price streaming"]
+        node_portfolio["Portfolio analytics"]
+        node_watchlist["Watchlists"]
+    end
 
-subgraph group_trading["Trading execution"]
-  node_order_api["Order API"]
-  node_order_service["Order service<br/>[OrderService.java]"]
-  node_execution["Order execution engine"]
-end
+    subgraph group_trading["Trading execution"]
+        node_order_api["Order API"]
+        node_order_service["Order service<br/>[OrderService.java]"]
+        node_execution["Order execution engine"]
+    end
 
-subgraph group_finance["Wallets and payments"]
-  node_payment_api["Payment API"]
-  node_payment_service["Payment service"]
-  node_wallet_service["Wallet service<br/>[WalletService.java]"]
-end
+    subgraph group_finance["Wallets and payments"]
+        node_payment_api["Payment API"]
+        node_payment_service["Payment service"]
+        node_wallet_service["Wallet service<br/>[WalletService.java]"]
+    end
 
-subgraph group_platform["Persistence and integrations"]
-  node_user_store[("User records<br/>[User.java]")]
-  node_verification_store[("Verification records")]
-  node_coin_store[("Coin records<br/>[Coin.java]")]
-  node_order_store[("Order records<br/>[Order.java]")]
-  node_payment_store[("Payment orders<br/>[PaymentOrder.java]")]
-  node_wallet_store[("Wallet ledger")]
-end
+    subgraph group_platform["Persistence and integrations"]
+        node_user_store[("User records<br/>[User.java]")]
+        node_verification_store[("Verification records")]
+        node_coin_store[("Coin records<br/>[Coin.java]")]
+        node_order_store[("Order records<br/>[Order.java]")]
+        node_payment_store[("Payment orders<br/>[PaymentOrder.java]")]
+        node_wallet_store[("Wallet ledger")]
+    end
 
-node_client(("Trading client"))
-node_payment_gateways{{"Razorpay and Stripe"}}
+    node_client(("Trading client"))
+    node_payment_gateways{{"Razorpay and Stripe"}}
 
-node_client -->|"authenticates"| node_auth_api
-node_client -.->|"manages profile"| node_user_api
-node_client -.->|"requests market data"| node_market_api
-node_client -->|"places orders"| node_order_api
-node_client -.->|"starts payment"| node_payment_api
-node_auth_api -->|"saves users"| node_user_store
-node_auth_api -->|"sends OTP"| node_email
-node_user_api -->|"loads users"| node_user_service
-node_user_api -->|"creates and verifies codes"| node_verification
-node_user_api -->|"sends OTP"| node_email
-node_verification -.->|"persists codes"| node_verification_store
-node_market_api -->|"requests coins"| node_coin_service
-node_coin_service -.->|"manages coin data"| node_coin_store
-node_price_stream -->|"reads prices"| node_coin_service
-node_client -.->|"views portfolio"| node_portfolio
-node_client -.->|"manages watchlist"| node_watchlist
-node_order_api -->|"submits orders"| node_order_service
-node_execution -->|"loads pending orders"| node_order_store
-node_execution -->|"fetches current price"| node_coin_service
-node_execution -->|"dispatches execution"| node_order_service
-node_order_service -.->|"persists orders"| node_order_store
-node_payment_api -.->|"processes payments"| node_payment_service
-node_payment_service -.->|"tracks payment orders"| node_payment_store
-node_payment_service -->|"credits wallet"| node_wallet_service
-node_wallet_service -.->|"records ledger entries"| node_wallet_store
-node_payment_service -.->|"verifies payment"| node_payment_gateways
+    node_client -->|"authenticates"| node_auth_api
+    node_client -.->|"manages profile"| node_user_api
+    node_client -.->|"requests market data"| node_market_api
+    node_client -->|"places orders"| node_order_api
+    node_client -.->|"starts payment"| node_payment_api
+    node_auth_api -->|"saves users"| node_user_store
+    node_auth_api -->|"sends OTP"| node_email
+    node_user_api -->|"loads users"| node_user_service
+    node_user_api -->|"creates and verifies codes"| node_verification
+    node_user_api -->|"sends OTP"| node_email
+    node_verification -.->|"persists codes"| node_verification_store
+    node_market_api -->|"requests coins"| node_coin_service
+    node_coin_service -.->|"manages coin data"| node_coin_store
+    node_price_stream -->|"reads prices"| node_coin_service
+    node_client -.->|"views portfolio"| node_portfolio
+    node_client -.->|"manages watchlist"| node_watchlist
+    node_order_api -->|"submits orders"| node_order_service
+    node_execution -->|"loads pending orders"| node_order_store
+    node_execution -->|"fetches current price"| node_coin_service
+    node_execution -->|"dispatches execution"| node_order_service
+    node_order_service -.->|"persists orders"| node_order_store
+    node_payment_api -.->|"processes payments"| node_payment_service
+    node_payment_service -.->|"tracks payment orders"| node_payment_store
+    node_payment_service -->|"credits wallet"| node_wallet_service
+    node_wallet_service -.->|"records ledger entries"| node_wallet_store
+    node_payment_service -.->|"verifies payment"| node_payment_gateways
 
-classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
-classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
-classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
-classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
-classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
-classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
-classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
-class node_auth_api,node_user_api,node_user_service,node_verification,node_email,node_client toneBlue
-class node_market_api,node_coin_service,node_price_stream,node_portfolio,node_watchlist toneAmber
-class node_order_api,node_order_service,node_execution toneMint
-class node_payment_api,node_payment_service,node_wallet_service toneRose
-class node_user_store,node_verification_store,node_coin_store,node_order_store,node_payment_store,node_wallet_store,node_payment_gateways toneIndigo
+    classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+    classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+    classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+    classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+    classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+    classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+    class node_auth_api,node_user_api,node_user_service,node_verification,node_email,node_client toneBlue
+    class node_market_api,node_coin_service,node_price_stream,node_portfolio,node_watchlist toneAmber
+    class node_order_api,node_order_service,node_execution toneMint
+    class node_payment_api,node_payment_service,node_wallet_service toneRose
+    class node_user_store,node_verification_store,node_coin_store,node_order_store,node_payment_store,node_wallet_store,node_payment_gateways toneIndigo
 
 ```
+
 ## 🚀 Core Features
 
 | Feature | Description |
@@ -264,6 +265,7 @@ flowchart TD
     class J,M,V,AB,AC error;
     
 ```
+
 ### 🗄️ Database Architecture
 
 A fully normalized relational schema (3NF) on MySQL, spanning identity, wallets, trading, market data, and event idempotency.
@@ -284,21 +286,22 @@ A fully normalized relational schema (3NF) on MySQL, spanning identity, wallets,
 
 ### Prerequisites
 
-*   Java 21+
-*   Maven 3.9+ (or use the included `./mvnw` wrapper)
-*   Docker & Docker Compose (for local Kafka, Zookeeper, Redis, MySQL)
-*   Razorpay and/or Stripe test-mode accounts
-*   Google Gemini API Key
+- Java 21+
+- Maven 3.9+ (or use the included `./mvnw` wrapper)
+- Docker & Docker Compose (for local Kafka, Zookeeper, Redis, MySQL)
+- Razorpay and/or Stripe test-mode accounts
+- Google Gemini API Key
 
 ### 1. Clone both repositories
 
 ```bash
 # Backend
-git clone [https://github.com/Biikash1/TradeForge.git](https://github.com/Biikash1/TradeForge.git)
+git clone https://github.com/Biikash1/TradeForge.git
 
 # Frontend
-git clone [https://github.com/Biikash1/TradeForge-Frontend.git](https://github.com/Biikash1/TradeForge-Frontend.git)
+git clone https://github.com/Biikash1/TradeForge-Frontend.git
 ```
+
 ### 2. Spin up Local Infrastructure
 
 TradeForge includes a `docker-compose.yaml` to instantly provision MySQL, Redis, Kafka, and Zookeeper.
@@ -306,18 +309,24 @@ TradeForge includes a `docker-compose.yaml` to instantly provision MySQL, Redis,
 ```bash
 cd TradeForge
 docker-compose up -d
- Note: The MySQL container automatically creates the Trading database. Hibernate will handle schema generation (spring.jpa.hibernate.ddl-auto=update).
+
+# Note: The MySQL container automatically creates the Trading database. 
+# Hibernate will handle schema generation (spring.jpa.hibernate.ddl-auto=update).
 ```
 
 ### 3. Run the backend
-```Bash
+
+```bash
 ./mvnw clean install
 ./mvnw spring-boot:run
-The API starts on http://localhost:8080. Swagger documentation is available at http://localhost:8080/swagger-ui.html.
+
+# The API starts on http://localhost:8080. 
+# Swagger documentation is available at http://localhost:8080/swagger-ui.html.
 ```
 
 ### 4. Run the frontend
-```Bash
+
+```bash
 cd ../TradeForge-Frontend
 npm install
 npm run dev
@@ -370,5 +379,3 @@ TradeForge/
 - [x] WebSocket-based live price streaming (Implemented via `PriceStreamingService`)
 - [x] Portfolio analytics and P&L dashboards (Implemented via `PortfolioService`)
 - [x] Dockerized deployment (Added `docker-compose.yaml` for Infra)
-
----
