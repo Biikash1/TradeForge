@@ -1,7 +1,9 @@
 package com.cryptotrading.service;
 
+import com.cryptotrading.domain.OrderStatus;
 import com.cryptotrading.domain.OrderType;
 import com.cryptotrading.domain.WalletTransactionType;
+import com.cryptotrading.exception.UnauthorizedOrderException;
 import com.cryptotrading.model.Order;
 import com.cryptotrading.model.User;
 import com.cryptotrading.model.Wallet;
@@ -163,13 +165,29 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalArgumentException("User cannot be null");
         }
 
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new UnauthorizedOrderException("Order does not belong to this user");
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new IllegalStateException("Order is already " + order.getStatus());
+        }
+
         BigDecimal orderPrice = order.getPrice();
         validateAmount(orderPrice);
 
         Wallet wallet = getUserWallet(user);
         BigDecimal currentBalance = getBalance(wallet);
 
-        if (order.getOrderType() == OrderType.BUY) {
+        boolean isBuy = order.getOrderType() == OrderType.BUY
+                || order.getOrderType() == OrderType.LIMIT_BUY
+                || order.getOrderType() == OrderType.STOP_LOSS_BUY;
+
+        boolean isSell = order.getOrderType() == OrderType.SELL
+                || order.getOrderType() == OrderType.LIMIT_SELL
+                || order.getOrderType() == OrderType.STOP_LOSS_SELL;
+
+        if (isBuy) {
             if (currentBalance.compareTo(orderPrice) < 0) {
                 log.warn("Buy Order Failed: User {} has insufficient funds in Wallet {} to buy ${} worth of assets. Current balance: ${}", user.getId(), wallet.getId(), orderPrice, currentBalance);
                 throw new IllegalStateException("Insufficient funds for this trade");
@@ -189,7 +207,7 @@ public class WalletServiceImpl implements WalletService {
                     .build();
             walletTransactionRepository.save(buyTx);
 
-        } else if (order.getOrderType() == OrderType.SELL) {
+        } else if (isSell) {
             wallet.setBalance(currentBalance.add(orderPrice));
 
             log.info("Wallet Credited: ${} for Sell Order {} to Wallet {}", orderPrice, order.getId(), wallet.getId());
@@ -210,6 +228,86 @@ public class WalletServiceImpl implements WalletService {
         }
 
         return walletRepository.save(wallet);
+    }
+
+    private BigDecimal getReservedBalance(Wallet wallet) {
+        return wallet.getReservedBalance() != null ? wallet.getReservedBalance() : BigDecimal.ZERO;
+    }
+
+    @Override
+    @Transactional
+    public Wallet reserveFunds(User user, BigDecimal amount) {
+        validateAmount(amount);
+        Wallet wallet = getUserWallet(user);
+        BigDecimal available = getBalance(wallet);
+
+        if (available.compareTo(amount) < 0) {
+            throw new IllegalStateException("Insufficient available balance. Available: " + available);
+        }
+
+        wallet.setBalance(available.subtract(amount));
+        wallet.setReservedBalance(getReservedBalance(wallet).add(amount));
+        log.info("Reserved ${} in Wallet {} for pending order", amount, wallet.getId());
+        return walletRepository.save(wallet);
+    }
+
+    @Override
+    @Transactional
+    public Wallet releaseReservedFunds(User user, BigDecimal amount) {
+        validateAmount(amount);
+        Wallet wallet = getUserWallet(user);
+        BigDecimal reserved = getReservedBalance(wallet);
+        BigDecimal toRelease = reserved.min(amount); // Guard against underflow
+
+        wallet.setReservedBalance(reserved.subtract(toRelease));
+        wallet.setBalance(getBalance(wallet).add(toRelease));
+        log.info("Released ${} from reservedBalance back to available balance in Wallet {}", toRelease, wallet.getId());
+        return walletRepository.save(wallet);
+    }
+
+    @Override
+    @Transactional
+    public Wallet settleReservedBuyOrder(Order order, User user, BigDecimal reservedAmount, BigDecimal executionTotal) {
+        validateAmount(reservedAmount);
+        validateAmount(executionTotal);
+
+        Wallet wallet = getUserWallet(user);
+        BigDecimal reserved = getReservedBalance(wallet);
+        BigDecimal available = getBalance(wallet);
+
+        if (reserved.compareTo(reservedAmount) < 0) {
+            throw new IllegalStateException("Reserved balance is lower than expected for order #" + order.getId());
+        }
+
+        // Deduct the reserved amount
+        wallet.setReservedBalance(reserved.subtract(reservedAmount));
+
+        if (executionTotal.compareTo(reservedAmount) < 0) {
+            // Price improvement: refund the difference back to available balance
+            BigDecimal refund = reservedAmount.subtract(executionTotal);
+            wallet.setBalance(available.add(refund));
+        } else if (executionTotal.compareTo(reservedAmount) > 0) {
+            // Slippage on STOP_LOSS_BUY: cover the extra from available balance
+            BigDecimal extraNeeded = executionTotal.subtract(reservedAmount);
+            if (available.compareTo(extraNeeded) < 0) {
+                throw new IllegalStateException("Insufficient available balance to cover execution slippage");
+            }
+            wallet.setBalance(available.subtract(extraNeeded));
+        }
+
+        Wallet savedWallet = walletRepository.save(wallet);
+
+        WalletTransaction buyTx = WalletTransaction.builder()
+                .wallet(savedWallet)
+                .type(WalletTransactionType.BUY_ASSETS)
+                .amount(executionTotal)
+                .purpose("Advanced buy order #" + order.getId())
+                .transferId(UUID.randomUUID().toString())
+                .date(Instant.now())
+                .build();
+        walletTransactionRepository.save(buyTx);
+
+        return savedWallet;
     }
 
     @Override

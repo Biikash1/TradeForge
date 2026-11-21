@@ -1,6 +1,7 @@
 package com.cryptotrading.service;
 
 import com.cryptotrading.exception.CoinApiException;
+import com.cryptotrading.exception.ResourceNotFoundException;
 import com.cryptotrading.model.Coin;
 import com.cryptotrading.repository.CoinRepository;
 import lombok.RequiredArgsConstructor;
@@ -110,12 +111,7 @@ public class CoinServiceImpl implements CoinService {
                 .buildAndExpand(coinId)
                 .toUriString();
 
-        try {
-            return getJson(url);
-        } catch (Exception ex) {
-            log.warn("Market chart failed (429/timeout). Serving fallback points: {}", ex.getMessage());
-            return getFallbackChartJson();
-        }
+       return getJson(url);
     }
 
     @Override
@@ -144,15 +140,10 @@ public class CoinServiceImpl implements CoinService {
     @Override
     public Coin findById(String coinId) {
         validateCoinId(coinId);
-
         return coinRepository.findById(coinId)
-                .orElseGet(() -> {
-                    List<Coin> fallback = getFallbackCoins();
-                    return fallback.stream()
-                            .filter(c -> c.getId().equalsIgnoreCase(coinId))
-                            .findFirst()
-                            .orElse(fallback.get(0));
-                });
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Coin not found: " + coinId)
+                );
     }
 
     @Override

@@ -20,10 +20,10 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String token;
+    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
+    private String tokenHash;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
     private User user;
 

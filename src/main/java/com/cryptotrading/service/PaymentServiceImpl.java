@@ -52,6 +52,9 @@ public class PaymentServiceImpl implements PaymentService{
     @Value("${stripe.cancel.url}")
     private String stripeCancelUrl;
 
+    @Value("${payment.usd-to-inr-rate:84.00}")
+    private BigDecimal usdToInrRate;
+
     @Override
     @Transactional
     public PaymentOrder createOrder(User user,
@@ -69,9 +72,16 @@ public class PaymentServiceImpl implements PaymentService{
             );
         }
 
+        BigDecimal usdAmount = amount.setScale(2, RoundingMode.HALF_UP);
+        boolean isRazorpay = paymentMethod == PaymentMethod.RAZORPAY;
+
         PaymentOrder paymentOrder = PaymentOrder.builder()
                 .user(user)
-                .amount(amount.setScale(2, RoundingMode.HALF_UP))
+                .amount(usdAmount)
+                .chargedAmount(isRazorpay
+                ? usdAmount.multiply(usdToInrRate).setScale(2, RoundingMode.HALF_UP)
+                        : usdAmount)
+                .currency(isRazorpay ? "INR" : "USD")
                 .paymentMethod(paymentMethod)
                 .status(PaymentOrderStatus.PENDING)
                 .build();
@@ -542,7 +552,7 @@ public class PaymentServiceImpl implements PaymentService{
         }
 
         PaymentOrder paymentOrder =
-                paymentOrderRepository.findById(orderId)
+                paymentOrderRepository.findByIdForUpdate(orderId)
                         .orElseThrow(() ->
                                 new PaymentOrderNotFoundException(
                                         "Payment order not found"

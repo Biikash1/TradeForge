@@ -25,7 +25,6 @@ public class OrderExecutionEngine {
 
     // Run every 20 seconds, aligning perfectly with your existing CoinGecko Redis cache TTL
     @Scheduled(fixedRate = 20000)
-    @Transactional(readOnly = true)
     public void evaluatePendingOrders() {
         List<OrderType> advancedTypes = List.of(
                 OrderType.LIMIT_BUY,

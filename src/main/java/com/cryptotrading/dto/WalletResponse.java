@@ -12,12 +12,13 @@ public class WalletResponse {
 
     private Long id;
     private BigDecimal balance;
+    private BigDecimal reservedBalance;
 
     public static WalletResponse from(Wallet wallet) {
-
         return WalletResponse.builder()
                 .id(wallet.getId())
                 .balance(wallet.getBalance())
+                .reservedBalance(wallet.getReservedBalance())
                 .build();
     }
 }

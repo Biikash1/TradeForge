@@ -4,10 +4,15 @@ import com.cryptotrading.model.RefreshToken;
 import com.cryptotrading.model.User;
 import com.cryptotrading.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.UUID;
 
 @Service
@@ -15,39 +20,53 @@ import java.util.UUID;
 public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
-
     private final long refreshTokenDurationMs = 7L * 24L * 60L * 60L * 1000L;
 
-    @Transactional
-    public RefreshToken createRefreshToken(User user) {
-        // Delete old token if exists
-        refreshTokenRepository.deleteByUserId(user.getId());
+    public String hashToken(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
 
+    @Transactional
+    public String createRefreshToken(User user) {
+        String rawToken = UUID.randomUUID().toString();
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
-                .token(UUID.randomUUID().toString())
+                .tokenHash(hashToken(rawToken))
                 .expiryDate(Instant.now().plusMillis(refreshTokenDurationMs))
                 .build();
 
-        return refreshTokenRepository.save(refreshToken);
+        refreshTokenRepository.save(refreshToken);
+        return rawToken; // Returned once to be placed in the HttpOnly cookie
     }
 
+    public RefreshToken findByRawToken(String rawToken) {
+        return refreshTokenRepository.findByTokenHash(hashToken(rawToken))
+                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
+    }
+
+    @Transactional
     public RefreshToken verifyExpiration(RefreshToken token) {
-        if(token.getExpiryDate().compareTo(Instant.now()) < 0) {
+        if (token.getExpiryDate().isBefore(Instant.now())) {
             refreshTokenRepository.delete(token);
-            throw new RuntimeException("Refresh token was expired. Please make a new signin request");
+            throw new BadCredentialsException("Refresh token expired. Please sign in again.");
         }
         return token;
     }
 
-    public RefreshToken findByToken(String token) {
-        return refreshTokenRepository.findByToken(token)
-                .orElseThrow(() ->
-                        new RuntimeException("Refresh token not found"));
+    @Transactional
+    public String rotateRefreshToken(RefreshToken existingToken) {
+        User user = existingToken.getUser();
+        refreshTokenRepository.delete(existingToken);
+        return createRefreshToken(user);
     }
 
     @Transactional
-    public void deleteByUserId(Long userId) {
-        refreshTokenRepository.deleteByUserId(userId);
+    public void deleteByRawToken(String rawToken) {
+        refreshTokenRepository.deleteByTokenHash(hashToken(rawToken));
     }
 }

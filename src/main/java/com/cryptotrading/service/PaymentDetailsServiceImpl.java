@@ -25,11 +25,15 @@ public class PaymentDetailsServiceImpl implements PaymentDetailsService {
             throw new IllegalArgumentException("User cannot be null");
         }
 
-        PaymentDetails paymentDetails = paymentDetailsRepository
-                .findByUserIdAndAccountNumber(user.getId(), request.getAccountNumber().trim())
+        String trimmedAccountNumber = request.getAccountNumber().trim();
+
+        PaymentDetails paymentDetails = paymentDetailsRepository.findByUserId(user.getId())
+                .stream()
+                .filter(existing -> trimmedAccountNumber.equals(existing.getAccountNumber()))
+                .findFirst()
                 .orElseGet(() -> PaymentDetails.builder().user(user).build());
 
-        paymentDetails.setAccountNumber(request.getAccountNumber().trim());
+        paymentDetails.setAccountNumber(trimmedAccountNumber);
         paymentDetails.setAccountHolderName(request.getAccountHolderName().trim());
         paymentDetails.setIfsc(request.getIfsc().trim().toUpperCase());
         paymentDetails.setBankName(request.getBankName().trim());

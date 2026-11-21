@@ -106,6 +106,7 @@ public class AssetServiceImpl implements AssetService {
         return assetRepository.findByUserIdAndCoinId(userId, coinId).orElse(null);
     }
 
+
     @Override
     @Transactional
     public void deleteAsset(Long assetId) {
@@ -115,5 +116,63 @@ public class AssetServiceImpl implements AssetService {
         }
         log.info("Deleted assetId {}", assetId);
         assetRepository.deleteById(assetId);
+    }
+
+    private BigDecimal getReserved(Asset asset) {
+        return asset.getReservedQuantity() != null ? asset.getReservedQuantity() : BigDecimal.ZERO;
+    }
+
+
+    @Override
+    @Transactional
+    public Asset reserveAssetQuantity(Long userId, String coinId, BigDecimal quantity) {
+        if (quantity == null || quantity.signum() <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero");
+        }
+
+        Asset asset = assetRepository.findByUserIdAndCoinId(userId, coinId)
+                .orElseThrow(() -> new IllegalStateException("You do not own this asset"));
+
+        BigDecimal available = asset.getQuantity().subtract(getReserved(asset));
+        if (available.compareTo(quantity) < 0) {
+            throw new IllegalStateException("Insufficient available asset quantity. Available: " + available);
+        }
+
+        asset.setReservedQuantity(getReserved(asset).add(quantity));
+        return assetRepository.save(asset);
+    }
+
+    @Override
+    @Transactional
+    public void releaseReservedAssetQuantity(Long userId, String coinId, BigDecimal quantity) {
+        Asset asset = assetRepository.findByUserIdAndCoinId(userId, coinId).orElse(null);
+        if (asset == null) return;
+
+        BigDecimal reserved = getReserved(asset);
+        BigDecimal updatedReserved = reserved.subtract(quantity).max(BigDecimal.ZERO);
+        asset.setReservedQuantity(updatedReserved);
+        assetRepository.save(asset);
+    }
+
+    @Override
+    @Transactional
+    public void settleReservedSellAsset(Long userId, String coinId, BigDecimal quantity) {
+        Asset asset = assetRepository.findByUserIdAndCoinId(userId, coinId)
+                .orElseThrow(() -> new IllegalStateException("Asset not found at execution time"));
+
+        BigDecimal updatedQuantity = asset.getQuantity().subtract(quantity);
+        BigDecimal updatedReserved = getReserved(asset).subtract(quantity).max(BigDecimal.ZERO);
+
+        if (updatedQuantity.signum() < 0) {
+            throw new IllegalStateException("Insufficient asset quantity at execution time");
+        }
+
+        if (updatedQuantity.signum() == 0) {
+            assetRepository.delete(asset);
+        } else {
+            asset.setQuantity(updatedQuantity);
+            asset.setReservedQuantity(updatedReserved);
+            assetRepository.save(asset);
+        }
     }
 }

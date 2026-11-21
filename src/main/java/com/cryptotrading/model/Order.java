@@ -28,7 +28,7 @@ public class Order {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private OrderType orderType;
 
     @Column(nullable = false, precision = 30, scale = 18)

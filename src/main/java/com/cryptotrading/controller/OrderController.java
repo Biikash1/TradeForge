@@ -87,5 +87,14 @@ public class OrderController {
 
         return ResponseEntity.ok(response);
     }
+    @DeleteMapping("/{orderId}")
+    public ResponseEntity<OrderResponse> cancelOrder(
+            @RequestHeader("Authorization") String jwt,
+            @PathVariable Long orderId) {
+
+        User user = userService.findUserProfileByJwt(jwt);
+        Order cancelledOrder = orderService.cancelOrder(orderId, user);
+        return ResponseEntity.ok(OrderResponse.from(cancelledOrder));
+    }
 
 }

@@ -71,4 +71,10 @@ public class PaymentOrder {
     @UpdateTimestamp
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal chargedAmount; // Gateway charge amount(USD for Stripe, INR for RAZORPAY)
+
+    @Column(nullable = false, length = 10)
+    private String currency; // "USD" or "INR"
 }

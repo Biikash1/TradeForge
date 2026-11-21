@@ -1,13 +1,17 @@
 package com.cryptotrading.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+@Builder
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
 @Entity
 public class Asset {
 
@@ -31,4 +35,8 @@ public class Asset {
 
     @Version
     private Long version;
+
+    @Column(nullable = false, precision = 30, scale = 18)
+    @Builder.Default
+    private BigDecimal reservedQuantity = BigDecimal.ZERO;
 }

@@ -73,7 +73,7 @@ public class PaymentServiceImplTest {
                 .user(userA)
                 .build();
 
-        when(paymentOrderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(paymentOrderRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(order));
 
         // Act & Assert: User B tries to process User A's order
         assertThrows(PaymentOwnershipException.class, () -> {

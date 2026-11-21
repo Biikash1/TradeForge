@@ -18,6 +18,12 @@ public interface WalletService {
 
     Wallet transfer(User sender, Wallet receiverWallet, BigDecimal amount, String purpose);
 
-    Wallet payOrder(Order order, User user) ;
+    Wallet payOrder(Order order, User user);
+
+    Wallet reserveFunds(User user, BigDecimal amount);
+
+    Wallet releaseReservedFunds(User user, BigDecimal amount);
+
+    Wallet settleReservedBuyOrder(Order order, User user, BigDecimal reservedAmount, BigDecimal executionTotal);
 
 }

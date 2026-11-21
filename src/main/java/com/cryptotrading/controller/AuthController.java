@@ -18,6 +18,7 @@ import com.cryptotrading.service.TwoFactorOtpService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -42,6 +43,9 @@ public class AuthController {
     private final EmailService emailService;
     private final JwtProvider jwtProvider;
     private final RefreshTokenService refreshTokenService;
+
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
 
 
     @PostMapping("/signup")
@@ -72,8 +76,8 @@ public class AuthController {
         String jwt = jwtProvider.generateToken(authentication);
 
         // Generate and set refresh token
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(savedUser);
-        setRefreshTokenCookie(httpServletResponse, refreshToken.getToken());
+        String rawRefreshToken = refreshTokenService.createRefreshToken(savedUser);
+        setRefreshTokenCookie(httpServletResponse, rawRefreshToken);
 
         AuthResponse response = buildAuthResponse(
                 savedUser,
@@ -109,8 +113,8 @@ public class AuthController {
         String jwt = jwtProvider.generateToken(authentication);
 
         // Generate and set refresh token for standard login
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(loggedInUser);
-        setRefreshTokenCookie(httpServletResponse, refreshToken.getToken());
+        String rawRefreshToken = refreshTokenService.createRefreshToken(loggedInUser);
+        setRefreshTokenCookie(httpServletResponse, rawRefreshToken);
 
         AuthResponse response = buildAuthResponse(
                 loggedInUser,
@@ -147,9 +151,8 @@ public class AuthController {
         String jwt = jwtProvider.generateToken(authentication);
 
         // Generate and set refresh token after successful 2FA
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
-        setRefreshTokenCookie(httpServletResponse, refreshToken.getToken());
-
+        String rawRefreshToken = refreshTokenService.createRefreshToken(user);
+        setRefreshTokenCookie(httpServletResponse, rawRefreshToken);
         twoFactorOtpService.deleteTwoFactorOtp(twoFactorOTP);
 
         AuthResponse response = buildAuthResponse(user, jwt, "Two-factor authentication verified");
@@ -161,24 +164,27 @@ public class AuthController {
     // ---  Refresh Token Endpoint ---
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refreshToken(
-            @CookieValue(name = "refreshToken", required = false) String requestRefreshToken) {
+            @CookieValue(name = "refreshToken", required = false) String requestRefreshToken,
+            HttpServletResponse httpServletResponse) {
 
         if (requestRefreshToken == null || requestRefreshToken.isBlank()) {
             throw new BadCredentialsException("Refresh token is missing");
         }
 
-        RefreshToken refreshToken = refreshTokenService.findByToken(requestRefreshToken);
+        RefreshToken refreshToken = refreshTokenService.findByRawToken(requestRefreshToken);
         refreshToken = refreshTokenService.verifyExpiration(refreshToken);
         User user = refreshToken.getUser();
+
+        // Rotate refresh token on every use
+        String newRawRefreshToken = refreshTokenService.rotateRefreshToken(refreshToken);
+        setRefreshTokenCookie(httpServletResponse, newRawRefreshToken);
 
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities());
 
         String newJwt = jwtProvider.generateToken(authentication);
-        AuthResponse response = buildAuthResponse(user, newJwt, "Token refreshed successfully");
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(buildAuthResponse(user, newJwt, "Token refreshed successfully"));
     }
 
     // ---  Logout Endpoint ---
@@ -188,17 +194,15 @@ public class AuthController {
             HttpServletResponse httpResponse) {
 
         if (requestRefreshToken != null && !requestRefreshToken.isBlank()) {
-            try {
-                RefreshToken token = refreshTokenService.findByToken(requestRefreshToken);
-                refreshTokenService.deleteByUserId(token.getUser().getId());
-            } catch (Exception ignored) {}
+            refreshTokenService.deleteByRawToken(requestRefreshToken);
         }
 
-        // Clear the cookie
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
-                .path("/")
+                .secure(cookieSecure)
+                .path("/auth")
                 .maxAge(0)
+                .sameSite("Strict")
                 .build();
         httpResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
@@ -271,8 +275,8 @@ public class AuthController {
     private void setRefreshTokenCookie(HttpServletResponse response, String token) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", token)
                 .httpOnly(true)
-                .secure(false) // Set to true in production
-                .path("/")
+                .secure(cookieSecure) // Set to true in production
+                .path("/auth")
                 .maxAge(7 * 24 * 60 * 60) // 7 days in seconds
                 .sameSite("Strict")
                 .build();

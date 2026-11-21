@@ -1,6 +1,7 @@
 package com.cryptotrading.controller;
 
 import com.cryptotrading.dto.PaymentDetailsRequest;
+import com.cryptotrading.dto.PaymentDetailsResponse;
 import com.cryptotrading.model.PaymentDetails;
 import com.cryptotrading.model.User;
 import com.cryptotrading.service.PaymentDetailsService;
@@ -22,22 +23,28 @@ public class PaymentDetailsController {
     private final PaymentDetailsService paymentDetailsService;
 
     @PostMapping
-    public ResponseEntity<PaymentDetails> addPaymentDetails(
+    public ResponseEntity<PaymentDetailsResponse> addPaymentDetails(
             @Valid @RequestBody PaymentDetailsRequest request,
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
         PaymentDetails paymentDetails = paymentDetailsService.addPaymentDetails(request, user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(paymentDetails);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(PaymentDetailsResponse.from(paymentDetails));
     }
 
     @GetMapping
-    public ResponseEntity<List<PaymentDetails>> getUsersPaymentDetails(
+    public ResponseEntity<List<PaymentDetailsResponse>> getUsersPaymentDetails(
             @RequestHeader("Authorization") String jwt) {
 
         User user = userService.findUserProfileByJwt(jwt);
-        List<PaymentDetails> paymentDetailsList = paymentDetailsService.getUsersPaymentDetails(user);
-        return ResponseEntity.ok(paymentDetailsList);
+        List<PaymentDetailsResponse> responses =  paymentDetailsService
+                .getUsersPaymentDetails(user)
+                .stream()
+                .map(PaymentDetailsResponse::from)
+                .toList();
+        return ResponseEntity.ok(responses);
     }
 
     @DeleteMapping("/{id}")

@@ -37,4 +37,8 @@ public class Wallet {
 
     @Version
     private Long version;
+
+    @Column(nullable = false, precision = 19, scale = 4)
+    @Builder.Default
+    private BigDecimal reservedBalance = BigDecimal.ZERO;
 }

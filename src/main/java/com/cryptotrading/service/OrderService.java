@@ -22,5 +22,5 @@ public interface OrderService {
 
     void executePendingAdvanceOrder(Long orderId, Coin currentMarketCoin);
 
-
+    Order cancelOrder(Long orderId, User user);
 }

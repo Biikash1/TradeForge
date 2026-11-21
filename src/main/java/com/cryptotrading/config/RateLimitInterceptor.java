@@ -23,35 +23,39 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws IOException {
         String path = request.getRequestURI();
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
-        // Let standard security filters handle unauthenticated users
-        if(auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
-            return true;
-        }
-
-        String email = auth.getName();
         Bucket bucket = null;
 
-        // Route to the appropriate Bucket strategy
-        if(path.startsWith("/api/chat")) {
-            bucket = rateLimitingService.resolveChatBucket(email);
-        } else if (path.startsWith("/api/orders") || path.startsWith("/api/wallet/transfer") || path.startsWith("/api/withdrawal")) {
-            bucket = rateLimitingService.resolveTradingBucket(email);
+        if (path.startsWith("/auth/")) {
+            String clientIp = request.getHeader("X-Forwarded-For");
+            if (clientIp == null || clientIp.isBlank()) {
+                clientIp = request.getRemoteAddr();
+            } else {
+                clientIp = clientIp.split(",")[0].trim();
+            }
+            bucket = rateLimitingService.resolveAuthBucket(clientIp);
+        } else {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+                return true;
+            }
+
+            String email = auth.getName();
+            if (path.startsWith("/api/chat")) {
+                bucket = rateLimitingService.resolveChatBucket(email);
+            } else if (path.startsWith("/api/orders") || path.startsWith("/api/wallet/transfer") || path.startsWith("/api/withdrawal")) {
+                bucket = rateLimitingService.resolveTradingBucket(email);
+            }
         }
 
-        // Apply consumption
-        if(bucket != null) {
+        if (bucket != null) {
             ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
-            if(!probe.isConsumed()) {
+            if (!probe.isConsumed()) {
                 long waitForRefill = probe.getNanosToWaitForRefill() / 1_000_000_000;
-
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setHeader("X-Rate-Limit-Retry-After-Seconds", String.valueOf(waitForRefill));
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\": \"Too Many Requests\", \"message\": \"Rate limit exceeded. Please try again in " + waitForRefill + " seconds.\"}");
-
-                return false; // Drop request
+                return false;
             }
             response.setHeader("X-Rate-Limit-Remaining", String.valueOf(probe.getRemainingTokens()));
         }

@@ -36,4 +36,13 @@ public class RateLimitingService {
         };
         return proxyManager.builder().build(("trading_limit_" + userId).getBytes(), configSupplier);
     }
+
+    public Bucket resolveAuthBucket(String clientIp) {
+        Supplier<BucketConfiguration> configSupplier = () -> {
+            Refill refill = Refill.intervally(10, Duration.ofMinutes(1));
+            Bandwidth limit = Bandwidth.classic(10, refill);
+            return BucketConfiguration.builder().addLimit(limit).build();
+        };
+        return proxyManager.builder().build(("auth_limit_" + clientIp).getBytes(), configSupplier);
+    }
 }

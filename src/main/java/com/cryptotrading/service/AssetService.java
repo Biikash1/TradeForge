@@ -22,4 +22,10 @@ public interface AssetService {
     Asset findAssetByUserIdAndCoinId(Long userId, String coinId);
 
     void deleteAsset(Long assetId);
+
+    Asset reserveAssetQuantity(Long userId, String coinId, BigDecimal quantity);
+
+    void releaseReservedAssetQuantity(Long userId, String coinId, BigDecimal quantity);
+
+    void settleReservedSellAsset(Long userId, String coinId, BigDecimal quantity);
 }

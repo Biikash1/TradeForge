@@ -1,5 +1,6 @@
 package com.cryptotrading.controller;
 
+import com.cryptotrading.domain.USER_ROLE;
 import com.cryptotrading.dto.*;
 import com.cryptotrading.domain.VerificationPurpose;
 import com.cryptotrading.domain.VerificationType;
@@ -11,6 +12,7 @@ import com.cryptotrading.service.VerificationCodeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -33,9 +35,15 @@ public class UserController {
 
     @GetMapping("/profile/{userId}")
     public ResponseEntity<UserProfileResponse> getUserProfileById(
-            @PathVariable Long userId) {
-        User user = userService.findUserById(userId);
+            @PathVariable Long userId,
+            @RequestHeader("Authorization") String jwt) {
 
+        User requester = userService.findUserProfileByJwt(jwt);
+        if (!requester.getId().equals(userId) && requester.getRole() != USER_ROLE.ADMIN) {
+            throw new AccessDeniedException("You are not authorized to view this profile");
+        }
+
+        User user = userService.findUserById(userId);
         return ResponseEntity.ok(buildUserProfileResponse(user));
     }
 

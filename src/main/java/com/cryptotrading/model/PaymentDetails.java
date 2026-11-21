@@ -1,5 +1,6 @@
 package com.cryptotrading.model;
 
+import com.cryptotrading.config.AesEncryptor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -19,7 +20,8 @@ public class PaymentDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "account_number", nullable = false, length = 30)
+    @Convert(converter = AesEncryptor.class)
+    @Column(name = "account_number", nullable = false, length = 255)
     private String accountNumber;
 
     @Column(name = "account_holder_name", nullable = false, length = 100)
@@ -31,7 +33,7 @@ public class PaymentDetails {
     @Column(name = "bank_name", nullable = false, length = 100)
     private String bankName;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
             name = "user_id",
             nullable = false
