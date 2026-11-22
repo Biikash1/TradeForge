@@ -34,11 +34,20 @@ public class RefreshTokenService {
     @Transactional
     public String createRefreshToken(User user) {
         String rawToken = UUID.randomUUID().toString();
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash(hashToken(rawToken))
-                .expiryDate(Instant.now().plusMillis(refreshTokenDurationMs))
-                .build();
+        String tokenHash = hashToken(rawToken);
+        Instant expiryDate = Instant.now().plusMillis(refreshTokenDurationMs);
+
+        RefreshToken refreshToken = refreshTokenRepository.findByUserId(user.getId())
+                .map(existing -> {
+                    existing.setTokenHash(tokenHash);
+                    existing.setExpiryDate(expiryDate);
+                    return existing;
+                })
+                .orElseGet(() -> RefreshToken.builder()
+                        .user(user)
+                        .tokenHash(tokenHash)
+                        .expiryDate(expiryDate)
+                        .build());
 
         refreshTokenRepository.save(refreshToken);
         return rawToken; // Returned once to be placed in the HttpOnly cookie
@@ -60,9 +69,11 @@ public class RefreshTokenService {
 
     @Transactional
     public String rotateRefreshToken(RefreshToken existingToken) {
-        User user = existingToken.getUser();
-        refreshTokenRepository.delete(existingToken);
-        return createRefreshToken(user);
+        String newRawToken = UUID.randomUUID().toString();
+        existingToken.setTokenHash(hashToken(newRawToken));
+        existingToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
+        refreshTokenRepository.save(existingToken);
+        return newRawToken;
     }
 
     @Transactional
