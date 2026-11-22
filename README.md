@@ -35,7 +35,7 @@ Execute trades, manage digital wallets, track real-time market data, process sec
 
 ## 🔭 Overview
 
-TradeForge is engineered for scale and correctness. It combines a stateless, secure authentication layer, a transactional order execution engine (supporting limit and stop-loss orders), an event-driven architecture using Kafka, a double-entry wallet ledger, and an idempotent multi-gateway payment pipeline behind a React-based trading terminal.
+TradeForge is engineered for scale and correctness. It combines a stateless, secure authentication layer, a transactional order execution engine (supporting limit and stop-loss orders), an event-driven architecture using Kafka, transaction-logged wallet ledger, and an idempotent multi-gateway payment pipeline behind a React-based trading terminal.
 
 ### Repositories
 
@@ -143,7 +143,7 @@ flowchart TD
 | **Event-Driven Architecture** | Asynchronous trade processing and email/WebSocket notifications using Apache Kafka. |
 | **AI Trade Assistant** | Integrated Google Gemini AI for real-time crypto insights and pre-trade risk analysis. |
 | **Real-Time Market Data** | Live cryptocurrency pricing via WebSockets (STOMP) and CoinGecko API integration with Redis caching. |
-| **Double-Entry Wallet System** | Internal ledger for user balances, idempotent top-ups, and withdrawal processing. |
+| **Transaction-Logged Wallet System** | Atomic balance management with reserved-funds locking, idempotent top-ups, and a full transaction audit log. |
 | **Institutional-Grade Security** | Stateless JWT authentication, Refresh Tokens, BCrypt hashing, and Email OTP-based 2FA. |
 | **Multi-Gateway Payments** | Fiat deposits via Razorpay and Stripe with automated, secure wallet crediting. |
 | **Rate Limiting** | Bucket4j & Redis rate limiting protecting core trading APIs and AI endpoints from abuse. |
