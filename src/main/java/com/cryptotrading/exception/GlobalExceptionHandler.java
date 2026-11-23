@@ -158,6 +158,14 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
     }
 
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(
+            org.springframework.security.authentication.BadCredentialsException ex
+    ) {
+        log.warn("Authentication failed: {}", ex.getMessage());
+        return buildResponse(HttpStatus.UNAUTHORIZED, "Unauthorize", ex.getMessage());
+    }
+
     private ResponseEntity<ErrorResponse> buildResponse(
             HttpStatus status,
             String error,
