@@ -1,5 +1,4 @@
 <div align="center">
-
 # TradeForge ⚡
 
 **A full-stack cryptocurrency trading and portfolio management platform.**
@@ -15,7 +14,27 @@ Execute market, limit, and stop-loss trades, manage transaction-logged digital w
 [![Java 21](https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk)](https://openjdk.org/)
 
 </div>
+---
 
+## 📸 Screenshots
+
+| Market Dashboard | Trading + AI Risk Insight |
+| :---: | :---: |
+| ![Market dashboard](docs/screenshots/dashboard.png) | ![Trading form and AI insight](docs/screenshots/trade-insight.png) |
+
+| Portfolio Analytics | Wallet & Transactions |
+| :---: | :---: |
+| ![Portfolio](docs/screenshots/portfolio.png) | ![Wallet](docs/screenshots/wallet.png) |
+ 
+---
+
+## ✨ Highlights
+
+- **6 order types** (market, limit, stop-loss) evaluated every 20s with fund/asset reservation and 60s stale-price rejection
+- **Transactional Outbox → Kafka** pipeline with retries, a dead-letter topic and an idempotent consumer
+- **Idempotent payments:** a 20-thread concurrency test credits a wallet exactly once (`PESSIMISTIC_WRITE` + `walletCredited` guard)
+- **~97% lower p95 latency** on `/api/coins` (1,388.7 ms → 41.3 ms) with Redis caching
+- **46 REST endpoints** and **17 JPA entities**, secured with JWT, rotating refresh tokens, RBAC and AES-256-GCM encryption at rest
 ---
 
 ## 📑 Table of Contents
@@ -28,17 +47,23 @@ Execute market, limit, and stop-loss trades, manage transaction-logged digital w
 - [Event-Driven Architecture](#-event-driven-architecture)
 - [Payment Processing Engine](#-payment-processing-engine)
 - [Database Architecture](#%EF%B8%8F-database-architecture)
+- [Testing & Performance](#-testing--performance)
+- [Design Decisions](#-design-decisions)
 - [Getting Started](#-getting-started)
 - [Configuration](#%EF%B8%8F-configuration)
 - [Project Structure](#-project-structure)
-- [Roadmap](#%EF%B8%8F-roadmap)
-
+- [Roadmap & Known Limitations](#%EF%B8%8F-roadmap--known-limitations)
 ---
 
 ## 🔭 Overview
 
-TradeForge is engineered for financial correctness, concurrency safety, and resilience. It combines stateless JWT authentication with rotating hashed refresh tokens, AES-256-GCM encryption for sensitive banking data, a transactional order execution engine with funds/asset reservation and stale-price protection, a Transactional Outbox pipeline over Apache Kafka with dead-letter recovery, and an idempotent multi-gateway payment engine behind a React trading terminal.
+TradeForge is engineered for financial correctness, concurrency safety, and resilience.
 
+- **Trading:** a transactional order execution engine with funds/asset reservation and stale-price protection.
+- **Reliability:** a Transactional Outbox pipeline over Apache Kafka with dead-letter recovery.
+- **Payments:** an idempotent multi-gateway payment engine (Razorpay and Stripe).
+- **Security:** stateless JWT authentication, rotating hashed refresh tokens, and AES-256-GCM encryption for sensitive banking data.
+- **Client:** a React trading terminal with live prices and AI pre-trade risk insights.
 ### Repositories
 
 TradeForge is split across two repositories:
@@ -47,14 +72,14 @@ TradeForge is split across two repositories:
 | :--- | :--- |
 | **[TradeForge](https://github.com/Biikash1/TradeForge)** (this repo) | Spring Boot 4 backend: REST API, security, order execution engine, Transactional Outbox + Kafka, wallet ledger, Redis caching/rate limiting, and Gemini AI |
 | **[TradeForge-Frontend](https://github.com/Biikash1/TradeForge-Frontend)** | React + Redux + Tailwind CSS trading terminal |
-
+ 
 ---
 
 ## 🏛️ System Architecture
 
 ```mermaid
 flowchart TD
-
+ 
     subgraph group_identity["Identity & Security"]
         node_auth_api["Authentication API"]
         node_user_api["User API"]
@@ -63,7 +88,7 @@ flowchart TD
         node_email["Email Delivery<br/>[EmailService.java]"]
         node_rate_limit["Redis Rate Limiter<br/>[RateLimitInterceptor.java]"]
     end
-
+ 
     subgraph group_market["Market, AI & Portfolio"]
         node_market_api["Coin API"]
         node_coin_service["Market Data Service<br/>[CoinService.java]"]
@@ -72,7 +97,7 @@ flowchart TD
         node_watchlist["Watchlists"]
         node_ai["AI Trade Assistant<br/>[ChatBotService.java]"]
     end
-
+ 
     subgraph group_trading["Trading Execution & Events"]
         node_order_api["Order API"]
         node_order_service["Order Service<br/>[OrderService.java]"]
@@ -81,23 +106,23 @@ flowchart TD
         node_kafka{{"Apache Kafka<br/>(trade-events / DLT)"}}
         node_consumer["Trade Event Consumer<br/>[TradeEventConsumer.java]"]
     end
-
+ 
     subgraph group_finance["Wallets & Payments"]
         node_payment_api["Payment API"]
         node_payment_service["Payment Service<br/>[PaymentService.java]"]
         node_wallet_service["Wallet Service<br/>[WalletService.java]"]
         node_withdrawal["Withdrawal Service"]
     end
-
+ 
     subgraph group_platform["Persistence & External APIs"]
         node_mysql[("MySQL 8.0<br/>(Users, Orders, Wallets,<br/>Outbox, Processed Events)")]
         node_redis[("Redis<br/>(Market Cache &<br/>Bucket4j Buckets)")]
         node_payment_gateways{{"Razorpay & Stripe"}}
         node_external{{"CoinGecko & Gemini AI"}}
     end
-
+ 
     node_client(("Trading Client"))
-
+ 
     node_client -->|"requests"| node_rate_limit
     node_rate_limit --> node_auth_api
     node_rate_limit --> node_order_api
@@ -106,13 +131,13 @@ flowchart TD
     node_client -.->|"requests market data"| node_market_api
     node_client -.->|"views portfolio / watchlist"| node_portfolio
     node_client -.->|"starts payment / withdrawal"| node_payment_api
-
+ 
     node_auth_api --> node_mysql
     node_auth_api --> node_email
     node_user_api --> node_user_service
     node_user_api --> node_verification
     node_verification --> node_email
-
+ 
     node_market_api --> node_coin_service
     node_coin_service --> node_redis
     node_coin_service --> node_external
@@ -120,7 +145,7 @@ flowchart TD
     node_price_stream -->|"20s broadcast"| node_client
     node_price_stream --> node_coin_service
     node_ai --> node_external
-
+ 
     node_order_api --> node_order_service
     node_execution -->|"20s evaluation"| node_order_service
     node_execution --> node_coin_service
@@ -132,13 +157,13 @@ flowchart TD
     node_consumer -->|"idempotency check"| node_mysql
     node_consumer -->|"trade confirmation"| node_email
     node_consumer -->|"live WS notification"| node_client
-
+ 
     node_payment_api --> node_payment_service
     node_payment_service --> node_payment_gateways
     node_payment_service -->|"pessimistic lock & credit"| node_wallet_service
     node_wallet_service --> node_mysql
     node_withdrawal --> node_wallet_service
-
+ 
     classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
     classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
     classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
@@ -150,24 +175,24 @@ flowchart TD
     class node_payment_api,node_payment_service,node_wallet_service,node_withdrawal toneRose
     class node_mysql,node_redis,node_payment_gateways,node_external toneIndigo
 ```
-
+ 
 ---
 
 ## 🚀 Core Features
 
 | Feature | Description |
 | :--- | :--- |
-| **Advanced Order Execution** | Market, Limit, and Stop-Loss buy/sell orders evaluated every 20 seconds by `OrderExecutionEngine` in isolated `REQUIRES_NEW` transactions, with stale-price protection (rejects quotes older than 60s). |
+| **Advanced Order Execution** | Market, Limit, and Stop-Loss buy/sell orders (6 order types) evaluated every 20 seconds by `OrderExecutionEngine`, each fill in an isolated `REQUIRES_NEW` transaction, with stale-price protection (rejects quotes older than 60s). |
 | **Funds & Asset Reservation** | Pending Limit/Stop-Loss buy orders lock fiat in `reservedBalance` (handling price improvement refunds and stop-loss slippage); pending sell orders lock holdings in `reservedQuantity`. Cancellations release locks cleanly. |
 | **Transactional Outbox & Kafka** | Trade events are persisted atomically to `outbox_events` alongside order fills, relayed to Kafka (`trade-events`) with broker acknowledgements, retried on failure, routed to `trade-events.DLT`, and deduplicated via `processed_events`. |
-| **AI Trade Assistant** | Google Gemini AI integration supporting function-calling live coin lookups (`/api/chat`), general crypto Q&A (`/api/chat/simple`), and context-aware pre-trade risk analysis (`/api/chat/trade-insight`). |
-| **Real-Time Market Data** | STOMP WebSocket streaming (`/ws`) broadcasting live prices every 20s to `/topic/public/prices` and `/topic/price/{coinId}`, backed by CoinGecko API, Redis caching (20s–1h TTLs), and DB fallback resilience. |
+| **AI Trade Assistant** | Google Gemini integration supporting function-calling live coin lookups (`/api/chat`), general crypto Q&A (`/api/chat/simple`), and context-aware pre-trade risk analysis (`/api/chat/trade-insight`). |
+| **Real-Time Market Data** | STOMP WebSocket streaming (`/ws`) broadcasting live prices every 20s to `/topic/public/prices` and `/topic/price/{coinId}`, backed by CoinGecko, Redis caching (20s–1h TTLs), and DB fallback. |
 | **Transaction-Logged Wallet System** | Atomic balance updates with `@Version` optimistic locking (`409 Conflict` on contention), P2P wallet transfers, admin-approved withdrawals, and paginated transaction history. |
-| **Defense-in-Depth Security** | Short-lived stateless JWTs (30 min), SHA-256 hashed rotating Refresh Tokens in `HttpOnly` cookies, BCrypt password/OTP hashing, Email OTP 2FA, RBAC (`ADMIN` / `CUSTOMER`), and AES-256-GCM encryption for stored bank account numbers. |
-| **Multi-Gateway Payments** | Fiat deposits via Razorpay (INR with configurable USD-to-INR conversion and auto-capture) and Stripe (USD) using pessimistic row locking (`SELECT ... FOR UPDATE`) and idempotency guards. |
-| **Distributed Rate Limiting** | Bucket4j + Redis rate limiting: `10 req/min` per IP on `/auth/**`, `20 req/hr` per user on `/api/chat/**`, and `80 req/min` per user on trading, transfer, and withdrawal endpoints. |
+| **Defense-in-Depth Security** | Short-lived JWTs (30 min), SHA-256 hashed rotating refresh tokens in `HttpOnly` cookies (7 days), BCrypt password/OTP hashing, Email OTP 2FA (5-attempt cap), RBAC (`ADMIN` / `CUSTOMER`), and AES-256-GCM encryption for stored bank account numbers. |
+| **Multi-Gateway Payments** | Fiat deposits via Razorpay (INR, with configurable USD-to-INR conversion and auto-capture) and Stripe (USD) using pessimistic row locking (`SELECT ... FOR UPDATE`) and idempotency guards. |
+| **Distributed Rate Limiting** | Bucket4j token buckets in Redis: `10 req/min` per IP on `/auth/**`, `20 req/hr` per user on `/api/chat/**`, and `80 req/min` per user on orders, wallet transfers, and withdrawals. |
 | **Portfolio Analytics** | Real-time calculation of total invested capital, current value, net P&L ($ and %), and best/worst performing assets. |
-
+ 
 ---
 
 ## 🛠️ Technology Stack
@@ -179,24 +204,25 @@ flowchart TD
 | **Real-Time** | Spring WebSocket (STOMP) |
 | **Caching & Rate Limiting** | Redis, Spring Cache, Bucket4j (`bucket4j-redis` / Lettuce) |
 | **Security & Crypto** | Spring Security, JJWT 0.13 (Gson), BCrypt, AES-256-GCM (`AttributeConverter`), JavaMail (Brevo SMTP) |
-| **Database** | MySQL 8.0 |
-| **External APIs** | Razorpay, Stripe, CoinGecko, Google Gemini AI |
-| **API Docs & Infra** | SpringDoc OpenAPI 3 (Swagger UI), Docker, Docker Compose |
-
+| **Database** | MySQL 8.0 (H2 in-memory for tests) |
+| **External APIs** | Razorpay, Stripe, CoinGecko, Google Gemini |
+| **Testing** | JUnit 5, Mockito, Spring Boot Test |
+| **API Docs & Infra** | SpringDoc OpenAPI 3 (Swagger UI), Docker, Docker Compose, Maven |
+ 
 ---
 
 ## 🔐 Security & Authentication
 
-TradeForge uses stateless short-lived JWT access tokens (30 minutes) paired with 7-day Refresh Tokens stored as SHA-256 hashes in MySQL and delivered via `HttpOnly`, `SameSite=Lax` cookies scoped to `/auth`. Every `/auth/refresh` call rotates the refresh token to limit replay exposure. Sensitive bank account numbers (`PaymentDetails`) are encrypted at rest with **AES-256-GCM** using a per-record random 12-byte IV and returned masked (`****1234`) in API responses.
+TradeForge uses stateless short-lived JWT access tokens (30 minutes) paired with 7-day refresh tokens stored as SHA-256 hashes in MySQL and delivered via `HttpOnly`, `SameSite=Lax` cookies scoped to `/auth`. Every `/auth/refresh` call rotates the refresh token to limit replay exposure. Sensitive bank account numbers (`PaymentDetails`) are encrypted at rest with **AES-256-GCM** using a per-record random 12-byte IV and returned masked (`****1234`) in API responses.
 
 ```mermaid
 flowchart TD
     C(["Client<br/>Postman / React"])
-
+ 
     C -->|"POST /auth/signup"| S1["AuthController"]
     C -->|"POST /auth/signin"| L1["AuthController"]
     C -->|"POST /auth/refresh<br/>(HttpOnly Cookie)"| R1["Verify SHA-256 Hash<br/>& Expiration"]
-
+ 
     subgraph SIGNUP ["Sign-up Flow"]
         S1 --> S2["Validate RegisterRequest"]
         S2 --> S3{"Email exists?"}
@@ -204,27 +230,27 @@ flowchart TD
         S3 -->|No| S4["BCrypt-encode password"]
         S4 --> S5["Save User"]
     end
-
+ 
     subgraph SIGNIN ["Sign-in Flow"]
         L1 --> L2["Authenticate BCrypt password"]
         L2 --> L5{"2FA enabled?"}
-        L5 -->|Yes| L6["Generate 6-digit OTP<br/>(BCrypt hashed, 15m TTL, max 5 tries)"]
+        L5 -->|Yes| L6["Generate 6-digit OTP<br/>(BCrypt hashed, max 5 tries)"]
         L6 --> L7["Email OTP & return session ID"]
         L7 --> L9["POST /auth/two-factor/otp"]
         L9 --> L10{"OTP valid?"}
         L10 -->|No| LE["401 Error"]
     end
-
+ 
     S5 --> J["JwtProvider + RefreshTokenService"]
     L5 -->|No| J
     L10 -->|Yes| J
     R1 -->|"Rotate Refresh Token"| J
-
+ 
     J --> J1["Issue 30m JWT &<br/>Store SHA-256 Hash of Refresh Token"]
     J1 --> J2["Set HttpOnly Cookie (path=/auth)"]
     J2 --> C2(["Client stores JWT, Browser stores Cookie"])
 ```
-
+ 
 ---
 
 ## 📨 Event-Driven Architecture
@@ -233,9 +259,8 @@ To prevent dual-write inconsistencies between MySQL and Kafka, TradeForge implem
 
 1. **Atomic Persistence:** When `OrderServiceImpl` fills a market or advanced order, it saves the updated `Order` and an `OutboxEvent` (`published = false`) in the same database transaction.
 2. **Reliable Relay:** `OutboxRelayService` polls up to 50 unpublished events every 2 seconds, publishes them to the `trade-events` Kafka topic, waits up to 5 seconds for broker acknowledgement, and marks them `published = true`. If Kafka is unreachable, the batch halts and retries on the next cycle.
-3. **Retry & Dead-Letter Topic:** `KafkaErrorConfig` configures `DefaultErrorHandler` with `FixedBackOff(2000ms, 3 retries)`. Poison messages that still fail are automatically routed by `DeadLetterPublishingRecoverer` to `trade-events.DLT`.
+3. **Retry & Dead-Letter Topic:** `KafkaErrorConfig` configures `DefaultErrorHandler` with `FixedBackOff(2000ms, 3 retries)`. Poison messages that still fail are routed by `DeadLetterPublishingRecoverer` to `trade-events.DLT`.
 4. **Idempotent Consumer:** `TradeEventConsumer` checks `processed_events` by `eventId` before sending the trade confirmation email and pushing a live STOMP notification to `/topic/notifications/{userId}`.
-
 ---
 
 ## 💳 Payment Processing Engine
@@ -246,70 +271,106 @@ Internal wallets are credited only after acquiring a pessimistic database lock (
 flowchart TD
     A["Payment Request<br/>(USD Wallet Credit Amount)"] --> B["Create PaymentOrder<br/>status: PENDING, walletCredited: false<br/>Store chargedAmount (INR/USD) & currency"]
     B --> C{"Payment Method"}
-
+ 
     C -->|RAZORPAY| D["Create Razorpay Payment Link (INR)"]
     C -->|STRIPE| E["Create Stripe Checkout Session (USD)"]
-
+ 
     D --> G["PaymentService<br/>processPaymentAndCreditWallet()"]
     E --> G
-
+ 
     G --> H["Lock PaymentOrder<br/>(PESSIMISTIC_WRITE)"]
     H --> I{"Order exists?"}
     I -->|No| J["PaymentOrderNotFoundException (404)"]
     I -->|Yes| L{"User owns order?"}
     L -->|No| M["PaymentOwnershipException (403)"]
     L -->|Yes| O{"walletCredited == true?"}
-
+ 
     O -->|Yes| P["Return existing wallet<br/>(Idempotent - no duplicate credit)"]
     O -->|No| R{"Payment Method"}
-
+ 
     R -->|RAZORPAY| S["Verify amount & INR currency<br/>Auto-capture if 'authorized' → verify 'captured'"]
     R -->|STRIPE| T["Verify order_id metadata, amount,<br/>USD currency & 'paid' status"]
-
+ 
     S --> U{"Payment valid?"}
     T --> U
-
+ 
     U -->|No| V["Mark FAILED<br/>PaymentVerificationException (400)"]
     U -->|Yes| W["Mark PaymentOrder SUCCESS"]
-
+ 
     W --> X["walletService.addBalance()<br/>& log ADD_MONEY transaction"]
     X --> Y["Set walletCredited = true & Save"]
     Y --> AA["Return WalletResponse"]
-
+ 
     J --> AB["GlobalExceptionHandler"]
     M --> AB
     V --> AB
     AB --> AC["Standardized ErrorResponse"]
-
+ 
     classDef start fill:#1f2937,stroke:#60a5fa,stroke-width:2px,color:#fff;
     classDef process fill:#111827,stroke:#9ca3af,stroke-width:1.5px,color:#fff;
     classDef decision fill:#1f2937,stroke:#fbbf24,stroke-width:2px,color:#fff;
     classDef success fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff;
     classDef error fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fff;
-
+ 
     class A start;
     class B,D,E,G,H,P,S,T,X,Y,AA process;
     class C,I,L,O,R,U decision;
     class W success;
     class J,M,V,AB,AC error;
 ```
-
+ 
 ---
 
 ## 🗄️ Database Architecture
 
-A normalized relational schema on MySQL 8.0 spanning identity, market data, order execution, financial ledgers, and reliable event delivery.
+A normalized relational schema on MySQL 8.0 with **17 JPA entities** spanning identity, market data, order execution, financial ledgers, and reliable event delivery.
 
 ### Key Entities
 
 | Domain | Entities / Tables |
 | :--- | :--- |
 | **Users & Security** | `USER`, `VERIFICATION_CODE`, `FORGET_PASSWORD_TOKEN`, `TWO_FACTOR_OTP`, `REFRESH_TOKENS` |
-| **Market Data** | `COIN`, `WATCHLIST`, `WATCHLIST_COINS` |
+| **Market Data** | `COIN`, `WATCHLIST`, `WATCHLIST_COINS` (join table) |
 | **Trading & Holdings** | `ORDERS`, `ORDER_ITEM`, `ASSET` (with `@Version` & `reservedQuantity`) |
 | **Finance & Ledger** | `WALLET` (with `@Version` & `reservedBalance`), `WALLET_TRANSACTIONS`, `WITHDRAWAL`, `PAYMENT_ORDERS` (with `@Version`), `PAYMENT_DETAILS` (AES-GCM encrypted account number) |
 | **Event Reliability** | `OUTBOX_EVENTS` (Transactional Outbox), `PROCESSED_EVENTS` (Kafka consumer idempotency) |
+ 
+---
 
+## 🧪 Testing & Performance
+
+```bash
+./mvnw test
+```
+
+| Test | What it verifies |
+| :--- | :--- |
+| `PaymentServiceConcurrencyTest` | 20 threads race to credit the same payment order; asserts exactly one wallet credit and one ledger entry (H2 in-memory, gateway call stubbed) |
+| `PaymentServiceImplTest` | Payment verification and idempotency unit tests |
+| `OrderExecutionEngineTest` | Trigger conditions for limit and stop-loss orders |
+| `TradeForgeApplicationTests` | Spring context load |
+
+**Market-data latency** (`GET /api/coins`, measured locally):
+
+| Scenario | p95 latency |
+| :--- | :---: |
+| Cache miss (includes a live CoinGecko call) | **1,388.7 ms** |
+| Redis cache hit | **41.3 ms** |
+| Improvement | **~97%** |
+ 
+---
+
+## 🧭 Design Decisions
+
+| Decision | Why |
+| :--- | :--- |
+| Transactional Outbox instead of publishing to Kafka directly | Avoids losing events if the app crashes between the DB commit and the Kafka publish |
+| `PESSIMISTIC_WRITE` on payments, `@Version` on wallets and assets | A payment credit must never double-apply; wallet and asset contention is low, so a `409` and retry is cheaper than locking |
+| `REQUIRES_NEW` per pending-order fill | One failing order cannot roll back the rest of the batch |
+| Fund and holding reservation for pending orders | Prevents overspending across concurrent limit and stop-loss orders |
+| Hashed, rotating refresh tokens in `HttpOnly` cookies | A leaked database row cannot be replayed, and the token is never exposed to JavaScript |
+| Per-cache TTLs (20s–1h) with DB fallback | Respects CoinGecko rate limits while keeping the API available when the provider fails |
+ 
 ---
 
 ## 🏁 Getting Started
@@ -322,23 +383,23 @@ A normalized relational schema on MySQL 8.0 spanning identity, market data, orde
 - **Razorpay** and/or **Stripe** test-mode accounts
 - **Google Gemini API Key**
 - **SMTP credentials** (e.g., Brevo)
-
 ### 1. Clone both repositories
 
 ```bash
 # Backend
-git clone [https://github.com/Biikash1/TradeForge.git](https://github.com/Biikash1/TradeForge.git)
-
+git clone https://github.com/Biikash1/TradeForge.git
+ 
 # Frontend
-git clone [https://github.com/Biikash1/TradeForge-Frontend.git](https://github.com/Biikash1/TradeForge-Frontend.git)
+git clone https://github.com/Biikash1/TradeForge-Frontend.git
 ```
 
 ### 2. Spin up local infrastructure
 
-`docker-compose.yaml` provisions MySQL 8.0 (auto-creating the `Trading` database), Zookeeper, Kafka (`localhost:9092`), and Redis (`localhost:6379`).
+`docker-compose.yaml` provisions MySQL 8.0 (auto-creating the `Trading` database), Zookeeper, Kafka (`localhost:9092`), and Redis (`localhost:6379`). Set `PASSWORD` first so MySQL and the app use the same root password.
 
 ```bash
 cd TradeForge
+export PASSWORD=your_mysql_password      # Windows PowerShell: $env:PASSWORD="your_mysql_password"
 docker-compose up -d
 ```
 
@@ -349,10 +410,12 @@ Export the required environment variables (see [Configuration](#%EF%B8%8F-config
 ```bash
 ./mvnw clean install
 ./mvnw spring-boot:run
-
+ 
 # API runs on http://localhost:8080
 # Swagger UI: http://localhost:8080/swagger-ui.html
 ```
+
+> Swagger UI and `/v3/api-docs` are enabled by default. In production, set `springdoc.api-docs.enabled=false` and `springdoc.swagger-ui.enabled=false`.
 
 ### 4. Run the frontend
 
@@ -361,7 +424,7 @@ cd ../TradeForge-Frontend
 npm install
 npm run dev
 ```
-
+ 
 ---
 
 ## ⚙️ Configuration
@@ -370,7 +433,7 @@ Set the following environment variables before running the application (or suppl
 
 | Variable | Required | Description |
 | :--- | :---: | :--- |
-| `PASSWORD` | Yes | MySQL `root` password (matches `MYSQL_ROOT_PASSWORD` in `docker-compose.yaml`) |
+| `PASSWORD` | Yes | MySQL `root` password (used by both `docker-compose.yaml` and the app) |
 | `JWT_SECRET` | Yes | Base64-encoded HMAC secret key for signing JWTs (at least 256-bit) |
 | `ENCRYPTION_SECRET` | Yes | 32-byte (256-bit) Base64-encoded AES-GCM key for encrypting bank account numbers (`openssl rand -base64 32`) |
 | `COINGECKO_URL` | Yes | CoinGecko API base URL (e.g., `https://api.coingecko.com/api/v3`) |
@@ -381,7 +444,7 @@ Set the following environment variables before running the application (or suppl
 | `STRIPE_SECRET` <br> `STRIPE_SUCCESS_URL` <br> `STRIPE_CANCEL_URL` | Yes | Stripe secret key and checkout success/cancel redirect URLs |
 | `USD_TO_INR_RATE` | No | Exchange rate used for Razorpay INR charges (default: `84.00`) |
 | `COOKIE_SECURE` | No | Sets the `Secure` flag on the refresh token cookie (default: `false` for local HTTP dev; set `true` in HTTPS production) |
-
+ 
 ---
 
 ## 📁 Project Structure
@@ -400,15 +463,18 @@ TradeForge/
 │   │   └── kafka/            # OutboxRelayService, TradeEventProducer, TradeEventConsumer
 │   └── Utils/                # OtpUtils (SecureRandom 6-digit OTP generator)
 ├── src/main/resources/       # application.properties
-├── src/test/                 # Context load & unit tests (OrderExecutionEngineTest, PaymentServiceImplTest)
+├── src/test/                 # TradeForgeApplicationTests, OrderExecutionEngineTest, PaymentServiceImplTest, PaymentServiceConcurrencyTest
+├── docs/screenshots/         # README screenshots
 ├── docker-compose.yaml       # Local infrastructure: MySQL 8.0, Kafka, Zookeeper, Redis
 ├── pom.xml                   # Maven dependencies (Spring Boot 4.1, Java 21)
 └── README.md
 ```
-
+ 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ Roadmap & Known Limitations
+
+**Completed**
 
 - [x] Limit and stop-loss order execution with funds/asset reservation (`OrderExecutionEngine`)
 - [x] Transactional Outbox pattern with Kafka Dead-Letter Topic (`OutboxRelayService`, `KafkaErrorConfig`)
@@ -417,4 +483,13 @@ TradeForge/
 - [x] Rotating SHA-256 hashed refresh tokens in `HttpOnly` cookies (`RefreshTokenService`)
 - [x] WebSocket-based live price streaming & trade notifications (`PriceStreamingService`)
 - [x] Portfolio analytics and P&L dashboards (`PortfolioServiceImpl`)
+- [x] Concurrency test for idempotent payment crediting (`PaymentServiceConcurrencyTest`)
 - [x] Dockerized local infrastructure (`docker-compose.yaml`)
+
+---
+
+<div align="center">
+Built by [Biikash1](https://github.com/Biikash1)
+
+</div>
+ 
