@@ -15,17 +15,6 @@ Execute market, limit, and stop-loss trades, manage transaction-logged digital w
 
 </div>
 ---
-
-## 📸 Screenshots
-
-| Market Dashboard | Trading + AI Risk Insight |
-| :---: | :---: |
-| ![Market dashboard](docs/screenshots/dashboard.png) | ![Trading form and AI insight](docs/screenshots/trade-insight.png) |
-
-| Portfolio Analytics | Wallet & Transactions |
-| :---: | :---: |
-| ![Portfolio](docs/screenshots/portfolio.png) | ![Wallet](docs/screenshots/wallet.png) |
- 
 ---
 
 ## ✨ Highlights
