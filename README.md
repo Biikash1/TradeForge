@@ -14,8 +14,6 @@ Execute market, limit, and stop-loss trades, manage transaction-logged digital w
 [![Java 21](https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk)](https://openjdk.org/)
 
 </div>
----
----
 
 ## ✨ Highlights
 
