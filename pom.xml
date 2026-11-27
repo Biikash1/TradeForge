@@ -145,7 +145,7 @@
             <scope>runtime</scope>
         </dependency>
 
-<!--        &lt;!&ndash; In-memory database for testing &ndash;&gt;-->
+        <!-- In-memory database for testing -->
 <!--        <dependency>-->
 <!--            <groupId>com.h2database</groupId>-->
 <!--            <artifactId>h2</artifactId>-->
